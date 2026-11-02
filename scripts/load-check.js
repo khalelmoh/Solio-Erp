@@ -1,0 +1,10 @@
+import {fixture} from '../tests/helpers.js';
+import {createApp} from '../src/server.js';
+import {randomUUID} from 'node:crypto';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const f=fixture(),server=createApp(f.db),latencies=[];await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin=`http://127.0.0.1:${server.address().port}`;
+try{const response=await fetch(origin+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'finance@demo.erp',password:'Demo-only-2026!'})}),cookie=response.headers.get('set-cookie').split(';')[0],before=f.erp.metrics(f.demo.project);const started=performance.now();
+  for(let offset=0;offset<100;offset+=10)await Promise.all(Array.from({length:10},async(_,i)=>{const key=randomUUID(),body=JSON.stringify({action:'funding.receive',data:{source_id:f.demo.source,account_id:1,amount:'0.01',date:'2026-03-01',reference:`LOAD-${offset+i}`}}),start=performance.now();const send=()=>fetch(origin+'/api/actions',{method:'POST',headers:{cookie,'Content-Type':'application/json','Idempotency-Key':key},body});const a=await send(),b=await send();assert.equal(a.status,200);assert.equal(b.status,200);assert.deepEqual(await a.json(),await b.json());latencies.push(performance.now()-start);}));
+  assert.equal(f.erp.metrics(f.demo.project).cash,before.cash+100);assert.equal(f.erp.metrics(f.demo.project).actual,before.actual);assert.equal(f.erp.get('PRAGMA integrity_check').integrity_check,'ok');latencies.sort((a,b)=>a-b);const result={scenario:'100 receipt postings, 100 identical retries, 10 concurrent HTTP clients',passed:true,elapsed_ms:Math.round(performance.now()-started),p95_post_and_retry_ms:Math.round(latencies[94]),duplicate_postings:0,scope:'Local developer runtime; production capacity still requires measurement on target hosting'};mkdirSync('artifacts',{recursive:true});writeFileSync('artifacts/load-check.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+}finally{await new Promise(r=>server.close(r));f.cleanup();}

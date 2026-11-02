@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      ERP_DB: /var/lib/erp/erp.sqlite
+      ERP_MASTER_KEY_FILE: /run/secrets/erp_master_key
+      ERP_SECURE_COOKIES: "true"
+      ERP_PUBLIC_ORIGIN: https://${ERP_DOMAIN:?Set ERP_DOMAIN}
+      ERP_TIMEZONE: Africa/Mogadishu
+    volumes:
+      - erp_data:/var/lib/erp
+    secrets:
+      - erp_master_key
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ERP_DOMAIN: ${ERP_DOMAIN:?Set ERP_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+volumes:
+  erp_data:
+  caddy_data:
+  caddy_config:
+secrets:
+  erp_master_key:
+    file: ${ERP_MASTER_KEY_PATH:?Set path to protected 64-hex-character key file}

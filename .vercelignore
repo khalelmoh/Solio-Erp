@@ -1,0 +1,10 @@
+.env*
+!.env.example
+data
+artifacts
+.cache
+.codex
+.git
+tests
+*.sqlite*
+*.key

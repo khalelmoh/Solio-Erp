@@ -1,0 +1,19 @@
+[Unit]
+Description=ERP synthetic staging internal notification scan
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=erp-staging
+Group=erp-staging
+WorkingDirectory=/opt/erp-staging/current
+EnvironmentFile=/etc/erp-staging/backend.env
+ExecStart=/usr/bin/node scripts/worker.js
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/erp-staging
+# ERP_WORKER_USER must be an authorized individual/service administrator.
+# ERP_TRANSPORTS_ENABLED=false; ERP_STAGING_SYNTHETIC_ONLY=true.

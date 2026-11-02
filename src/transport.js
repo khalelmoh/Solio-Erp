@@ -1,0 +1,23 @@
+import nodemailer from 'nodemailer';
+import {createHmac} from 'node:crypto';
+import {unseal,fingerprint} from './secure.js';
+
+export async function verifySMTP(erp,actor,{smtpTransport}={}){
+  erp.admin(actor);erp.requireLiveEnvironment();let ok=false,detail='SMTP host, sender and credentials must be configured on the persistent backend',transport=smtpTransport;
+  const fields=['ERP_SMTP_HOST','ERP_SMTP_PORT','ERP_SMTP_SECURE','ERP_SMTP_FROM','ERP_SMTP_USER','ERP_SMTP_PASSWORD'];
+  if(transport||process.env.ERP_SMTP_HOST&&process.env.ERP_SMTP_FROM){
+    try{transport||=nodemailer.createTransport({host:process.env.ERP_SMTP_HOST,port:Number(process.env.ERP_SMTP_PORT||587),secure:process.env.ERP_SMTP_SECURE==='true',requireTLS:process.env.ERP_ALLOW_LOCAL_TRANSPORT!=='true',connectionTimeout:10000,socketTimeout:15000,auth:process.env.ERP_SMTP_USER?{user:process.env.ERP_SMTP_USER,pass:process.env.ERP_SMTP_PASSWORD}:undefined});await transport.verify();ok=true;detail='SMTP connection/authentication verified; no email was sent. Live delivery still needs an authorized recipient and receipt.';}catch{detail='SMTP verification failed; review credentials, TLS and provider access';}finally{transport?.close?.();}
+  }
+  const id=erp.insert('ops_provider_checks',{connection_id:null,kind:'smtp',ok:ok?1:0,detail,config_hash:fingerprint(erp.db,JSON.stringify(fields.map(k=>process.env[k]||''))),actor_id:actor});return{id,ok,detail};
+}
+
+// A crashed sender can be retried. Receivers must deduplicate the event key.
+function claim(erp,table){const now=Date.now();erp.db.exec('BEGIN IMMEDIATE');try{const row=erp.get(`SELECT * FROM ${table} WHERE (state IN('queued','failed') AND next_attempt<=?) OR (state='sending' AND lease_until<?) ORDER BY id LIMIT 1`,now,now);if(row)erp.run(`UPDATE ${table} SET state='sending',attempts=attempts+1,lease_until=? WHERE id=?`,now+60000,row.id);erp.db.exec('COMMIT');return row;}catch(e){erp.db.exec('ROLLBACK');throw e;}}
+function finish(erp,table,row,error){if(error)erp.run(`UPDATE ${table} SET state='failed',lease_until=0,next_attempt=?,last_error=? WHERE id=?`,Date.now()+Math.min(3600000,1000*2**Math.min(row.attempts+1,12)),'Transport failed; verify credentials and provider availability',row.id);else erp.run(`UPDATE ${table} SET state='sent',lease_until=0,last_error='',${table==='deliveries'?'sent_at':'delivered_at'}=CURRENT_TIMESTAMP WHERE id=?`,row.id);}
+export async function drainTransports(erp,{smtpTransport,fetcher=fetch,limit=20}={}){
+  erp.requireLiveEnvironment();const outcomes=[];let smtp=smtpTransport;
+  if(!smtp&&process.env.ERP_SMTP_HOST){if(!process.env.ERP_SMTP_FROM)throw new Error('ERP_SMTP_FROM is required');smtp=nodemailer.createTransport({host:process.env.ERP_SMTP_HOST,port:Number(process.env.ERP_SMTP_PORT||587),secure:process.env.ERP_SMTP_SECURE==='true',requireTLS:process.env.NODE_ENV==='production',connectionTimeout:10000,socketTimeout:15000,auth:process.env.ERP_SMTP_USER?{user:process.env.ERP_SMTP_USER,pass:process.env.ERP_SMTP_PASSWORD}:undefined});}
+  if(smtp)for(let n=0;n<limit;n++){const row=claim(erp,'deliveries');if(!row)break;try{const msg=erp.get('SELECT * FROM notifications WHERE id=?',row.notification_id);if(erp.lifecycleBlockedUser(msg.user_id)||msg.project_id&&!erp.get('SELECT 1 FROM memberships WHERE project_id=? AND user_id=?',msg.project_id,msg.user_id))throw new Error('Access revoked');await smtp.sendMail({from:process.env.ERP_SMTP_FROM||'erp@local.test',to:row.recipient,subject:msg.title,text:msg.body,messageId:`<folio-notification-${msg.id}@erp.local>`});finish(erp,'deliveries',row);outcomes.push({channel:'smtp',id:row.id,ok:true});}catch(e){finish(erp,'deliveries',row,e);outcomes.push({channel:'smtp',id:row.id,ok:false});}}
+  for(let n=0;n<limit;n++){const row=claim(erp,'integration_outbox');if(!row)break;try{const i=erp.get('SELECT * FROM integrations WHERE id=? AND enabled=1',row.integration_id);if(!i)throw new Error('Disabled integration');const {secret}=unseal(erp.db,i.secret_encrypted,`integration:${i.name}`),timestamp=String(Math.floor(Date.now()/1000)),signature=createHmac('sha256',secret).update(`${timestamp}.${row.payload}`).digest('hex');const response=await fetcher(i.endpoint,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json','X-ERP-Timestamp':timestamp,'X-ERP-Signature':signature,'Idempotency-Key':row.event_key},body:row.payload,signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('Provider rejected event');finish(erp,'integration_outbox',row);outcomes.push({channel:'webhook',id:row.id,ok:true});}catch(e){finish(erp,'integration_outbox',row,e);outcomes.push({channel:'webhook',id:row.id,ok:false});}}
+  smtp?.close?.();return outcomes;
+}

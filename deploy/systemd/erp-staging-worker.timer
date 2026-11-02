@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the authorized internal staging scan every five minutes
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=erp-staging-worker.service
+[Install]
+WantedBy=timers.target

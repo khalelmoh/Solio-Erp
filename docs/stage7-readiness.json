@@ -1,0 +1,331 @@
+{
+  "updated_at": "2026-10-26T09:01:41.496Z",
+  "build": "0.12.0",
+  "schema": 13,
+  "historical_local_evidence_build": "0.10.0",
+  "postgres_migrations": 4,
+  "current_engineering_report": "docs/postgres-release.md",
+  "recommendation": "Not ready for selected Supabase staging, a real-record pilot or production. Local synthetic UAT may continue.",
+  "selected_target": {
+    "frontend": "Vercel",
+    "database": "Supabase PostgreSQL",
+    "api": "Existing Node API on separate host; host/domain not selected",
+    "postgres_runtime_implemented": true
+  },
+  "user_report": {
+    "outcome": "guided synthetic project-finance walkthrough completed smoothly",
+    "source": "Actual user Stage 7 request",
+    "scope": "Only the completed project-finance scenario",
+    "unrelated_workflow_acceptance": false,
+    "production_authorization": false
+  },
+  "performance": {
+    "workload": {
+      "projects": 60,
+      "receipts": 600,
+      "requests": 40,
+      "concurrency": 5,
+      "page_size": 20
+    },
+    "before": {
+      "sql_statements": 1191,
+      "ms": 63.907499999999345,
+      "returned_projects": 60
+    },
+    "after": {
+      "sql_statements": 4,
+      "ms": 2.7357999999999265,
+      "returned_projects": 20
+    },
+    "http_before": {
+      "sql_statements_including_auth": 1195,
+      "payload_bytes": 31509,
+      "returned_projects": 60,
+      "pagination": null,
+      "p50_ms": 311.2476999999999,
+      "p95_ms": 346.0007999999998
+    },
+    "http_after": {
+      "sql_statements_including_auth": 8,
+      "payload_bytes": 10726,
+      "returned_projects": 20,
+      "pagination": {
+        "page": 1,
+        "page_size": 20,
+        "total": 60,
+        "total_pages": 3,
+        "has_previous": false,
+        "has_next": true
+      },
+      "p50_ms": 11.097699999999804,
+      "p95_ms": 17.233799999999974
+    }
+  },
+  "browser_suites": {
+    "node": "v24.22.0",
+    "results": [
+      {
+        "script": "browser-stage7.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-smoke.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-lifecycle.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-completion.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-payroll-inventory.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-stage3.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-employee-registration.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-accounting.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-people.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-operations.js",
+        "exit_code": 0
+      },
+      {
+        "script": "browser-release.js",
+        "exit_code": 0
+      }
+    ],
+    "all_passed": true
+  },
+  "items": [
+    {
+      "id": "UAT-00",
+      "requirement": "Guided project-finance lifecycle",
+      "status": "passed: specific observed scenario",
+      "owner": "Conversation user",
+      "owner_name": null,
+      "next_action": "Preserve the recorded five totals and smooth-outcome report; do not infer other acceptance",
+      "evidence": "docs/uat-project-finance-result.md"
+    },
+    {
+      "id": "UAT-ACCESS",
+      "requirement": "Reported requester sign-in failure",
+      "status": "closed: actual user confirmed successful retry",
+      "owner": "Reviewer / administrator",
+      "owner_name": null,
+      "next_action": "Preserve the actual successful retry observation; continue the advance scenario without inferring full acceptance.",
+      "evidence": "artifacts/uat/stage7-advance-session.json"
+    },
+    {
+      "id": "UAT-01",
+      "requirement": "Advance settlement and unused-money return",
+      "status": "pending actual findings",
+      "owner": "Finance / project manager",
+      "owner_name": null,
+      "next_action": "Switch from Manager to separate Finance account: click Amina Hassan at bottom left to sign out, choose Local demonstration accounts > Finance, then Sign in. Confirm Yusuf Ali appears without errors. Do not disburse yet.",
+      "evidence": "artifacts/uat/finance.json"
+    },
+    {
+      "id": "UAT-02",
+      "requirement": "Budget amendments and restricted funding",
+      "status": "pending actual findings",
+      "owner": "Project manager / Finance",
+      "owner_name": null,
+      "next_action": "Review pending vs approved amendment, consumed-category reduction rejection and source-category/date restrictions",
+      "evidence": "artifacts/uat/project_manager.json"
+    },
+    {
+      "id": "UAT-03",
+      "requirement": "Employee registration, leave and payroll allocation",
+      "status": "pending actual findings",
+      "owner": "HR / payroll preparer / independent approver",
+      "owner_name": null,
+      "next_action": "Use synthetic employee/calendar/leave and approved60/40 allocation; verify1000 gross /600+400 cost",
+      "evidence": "artifacts/uat/hr.json"
+    },
+    {
+      "id": "UAT-04",
+      "requirement": "Salary payment and outstanding liabilities",
+      "status": "pending actual findings",
+      "owner": "Payroll Finance / approver",
+      "owner_name": null,
+      "next_action": "Verify approved salary liability, partial net payment, recovery and remaining obligations; supplier payment is not salary acceptance",
+      "evidence": "artifacts/uat/hr.json"
+    },
+    {
+      "id": "UAT-05",
+      "requirement": "Confidential records and role restrictions",
+      "status": "pending actual findings",
+      "owner": "HR / employee / administrator",
+      "owner_name": null,
+      "next_action": "Attempt unauthorized employee, salary, bank, document and export access with separate accounts; record denials",
+      "evidence": "artifacts/uat/employee.json"
+    },
+    {
+      "id": "UAT-06",
+      "requirement": "Offboarding and access revocation",
+      "status": "pending actual findings",
+      "owner": "HR / access officer",
+      "owner_name": null,
+      "next_action": "Approve synthetic departure; verify old session/login/recovery and local access revoked despite unpaid/equipment obligations",
+      "evidence": "artifacts/uat/hr.json"
+    },
+    {
+      "id": "UAT-07",
+      "requirement": "Period closing and project financial closure",
+      "status": "pending actual findings",
+      "owner": "Finance / manager / independent approver",
+      "owner_name": null,
+      "next_action": "Verify locked-period rejection, controlled correction/reopening and closure rejection for unresolved advances/liabilities/reconciliation/restricted funding",
+      "evidence": "artifacts/uat/project_manager.json"
+    },
+    {
+      "id": "ENG-01",
+      "requirement": "Bounded project listing and correct totals",
+      "status": "verified locally",
+      "owner": "Engineering",
+      "owner_name": null,
+      "next_action": "Retain regression evidence; measure on actual Supabase target",
+      "evidence": "artifacts/stage7-project-after.json"
+    },
+    {
+      "id": "ENG-02",
+      "requirement": "Selected Supabase PostgreSQL implementation",
+      "status": "implemented and verified locally; actual target unverified",
+      "owner": "Engineering / Supabase owner",
+      "owner_name": null,
+      "next_action": "Configure the synthetic project and private Node host, verify TLS/roles/lock capacity, then repeat target financial/security/recovery acceptance",
+      "evidence": "docs/postgres-release.md"
+    },
+    {
+      "id": "ENG-03",
+      "requirement": "Organization and project accounting in one ledger",
+      "status": "verified locally; human review pending",
+      "owner": "Finance / independent approver",
+      "owner_name": null,
+      "next_action": "Review the isolated port3004 demonstration and record actual observations; approve configured accounting policies before real use",
+      "evidence": "docs/organization-finance-release.md"
+    },
+    {
+      "id": "OPS-01",
+      "requirement": "Supabase staging project access",
+      "status": "unverified: access missing",
+      "owner": "Administrator / Supabase project owner",
+      "owner_name": null,
+      "next_action": "Run supabase.cmd login locally; supply staging project reference and reviewed TLS connection via protected backend secret file; no secrets in chat",
+      "evidence": "deploy/supabase.env.example"
+    },
+    {
+      "id": "OPS-02",
+      "requirement": "Separate Node host and staging domain",
+      "status": "unverified: host not selected",
+      "owner": "Administrator / hosting owner",
+      "owner_name": null,
+      "next_action": "Select Node24 host/domain, private HTTPS ingress, one API instance and supervised worker; provide host access for verification",
+      "evidence": "docs/stage7-staging.md"
+    },
+    {
+      "id": "OPS-03",
+      "requirement": "Private staging access, HTTPS, cookies and proxy",
+      "status": "unverified on target",
+      "owner": "Security / administrator",
+      "owner_name": null,
+      "next_action": "Enable Vercel deployment protection or private gateway, configure proxy secret and individual MFA accounts, test unauthenticated denial and browser sessions",
+      "evidence": "docs/stage7-staging.md"
+    },
+    {
+      "id": "OPS-04",
+      "requirement": "Persistence across target restart/redeployment",
+      "status": "unverified on target",
+      "owner": "Administrator / Finance",
+      "owner_name": null,
+      "next_action": "After target configuration and synthetic seed, run staging-probe capture, restart/redeploy, then verify financial/source/attachment persistence and changed instance",
+      "evidence": "scripts/staging-probe.js"
+    },
+    {
+      "id": "OPS-05",
+      "requirement": "Actual scheduled background execution",
+      "status": "local scan verified; target unverified",
+      "owner": "Administrator",
+      "owner_name": null,
+      "next_action": "Assign authorized worker account, install one scheduler path with transports off and demonstrate an actual scheduled scan",
+      "evidence": "deploy/systemd/erp-staging-worker.timer"
+    },
+    {
+      "id": "OPS-06",
+      "requirement": "Scheduled encrypted PostgreSQL backups/offsite copy",
+      "status": "procedure prepared; target unverified",
+      "owner": "Recovery owner",
+      "owner_name": null,
+      "next_action": "Configure protected PG service/password, age recipient/off-host key, approved retention and offsite copy; install timer and retain actual run receipt",
+      "evidence": "deploy/staging-postgres-backup.sh"
+    },
+    {
+      "id": "OPS-07",
+      "requirement": "Backup-failure notification delivery",
+      "status": "unverified: test sink missing",
+      "owner": "Administrator / monitoring owner",
+      "owner_name": null,
+      "next_action": "Configure an authorized monitoring test sink; induce harmless failure and retain delivered receipt/nonzero status, then restore valid configuration",
+      "evidence": "deploy/staging-backup.env.example"
+    },
+    {
+      "id": "OPS-08",
+      "requirement": "Separate PostgreSQL restore and application verification",
+      "status": "local separate-database recovery verified; target unverified",
+      "owner": "Recovery owner / Finance",
+      "owner_name": null,
+      "next_action": "Use distinct staging-recovery project and keys; restore approved archive, block outbound/session reuse, verify totals/counts/attachments and measure actual cutoff/timing",
+      "evidence": "docs/stage7-staging.md"
+    },
+    {
+      "id": "PILOT-01",
+      "requirement": "Named responsibilities and formal role signoff",
+      "status": "pending nomination",
+      "owner": "Organization change owner",
+      "owner_name": null,
+      "next_action": "Name actual Finance, HR, manager, independent approvers, administrator and recovery owners; no fictional reviewer attribution",
+      "evidence": "docs/stage7-pilot.md"
+    },
+    {
+      "id": "PILOT-02",
+      "requirement": "Openings, policies, privacy and access",
+      "status": "pending actual authority/evidence",
+      "owner": "Finance / HR / security",
+      "owner_name": null,
+      "next_action": "Validate supported openings, source agreements, authority limits, Somaliland salary/leave/tax/final-pay, retention/holds and individual access before real records",
+      "evidence": "docs/stage7-pilot.md"
+    },
+    {
+      "id": "PILOT-03",
+      "requirement": "Real-record pilot scope and authorization",
+      "status": "not authorized",
+      "owner": "Designated pilot authorizer",
+      "owner_name": null,
+      "next_action": "After gates pass, explicitly approve one actual project/source, five named employees, dates, stop/recovery owners and daily reconciliation",
+      "evidence": "docs/stage7-pilot.md"
+    }
+  ],
+  "limitations": [
+    "No Supabase login/project credentials",
+    "No selected Node host/private domain",
+    "Actual Supabase/host/TLS/recovery measurements unavailable",
+    "No actual target/Linux scheduler/backup/alert/restore results",
+    "Full-role human findings and actual owner names remain pending",
+    "Other HR/accounting overviews and selected-project detail/history are not server-paginated by this project-list change"
+  ]
+}

@@ -1,0 +1,45 @@
+import {DatabaseSync} from 'node:sqlite';
+import {randomBytes,createCipheriv,createDecipheriv,createHash,createHmac,randomUUID,timingSafeEqual} from 'node:crypto';
+import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,unlinkSync,rmdirSync,existsSync,readdirSync,statSync,lstatSync,copyFileSync,constants} from 'node:fs';
+import {resolve,dirname,join} from 'node:path';
+import {restrictFile} from './private-files.js';
+
+const magic=Buffer.from('FOLIO-BACKUP-1\n'),sha=b=>createHash('sha256').update(b).digest('hex');
+const keyFrom=path=>{if(!path)throw Error('A separate ERP_BACKUP_KEY_FILE is required');const s=readFileSync(path,'utf8').trim();if(!/^[a-f\d]{64}$/i.test(s))throw Error('Backup key must contain exactly 64 hexadecimal characters');return Buffer.from(s,'hex');};
+const safeConfig=new Set(['HOST','PORT','ERP_TIMEZONE','ERP_SECURE_COOKIES','ERP_PUBLIC_ORIGIN','ERP_JOB_INTERVAL_SECONDS','ERP_JOBS_ENABLED','ERP_WORKER_USER','ERP_TRANSPORTS_ENABLED','ERP_OIDC_ISSUER','ERP_OIDC_CLIENT_ID','ERP_OIDC_REDIRECT_URI','ERP_OIDC_MFA_ACR','ERP_SMTP_HOST','ERP_SMTP_PORT','ERP_SMTP_SECURE','ERP_SMTP_FROM','ERP_BACKUP_RETENTION_DAYS','ERP_BACKUP_MAX_AGE_HOURS']);
+function configSnapshot(file){if(!file)return{};return Object.fromEntries(readFileSync(file,'utf8').split(/\r?\n/).filter(l=>!l.startsWith('#')&&l.includes('=')).map(l=>[l.slice(0,l.indexOf('=')),l.slice(l.indexOf('=')+1)]).filter(([k])=>safeConfig.has(k)));}
+export function encryptedBackup(sourcePath,destinationPath,{keyFile=process.env.ERP_BACKUP_KEY_FILE,configFile,now=new Date()}={}){
+  if(['postgres','supabase'].includes(process.env.ERP_DATABASE_PROVIDER))throw Error('PostgreSQL selected: use backup:postgres; SQLite fallback is prohibited');
+  const source=resolve(sourcePath),destination=resolve(destinationPath),key=keyFrom(keyFile);if(!existsSync(source)||source===destination||existsSync(destination))throw Error('Use an existing source and unused archive destination');
+  const localKey=process.env.ERP_MASTER_KEY||readFileSync(process.env.ERP_MASTER_KEY_FILE||source+'.key','utf8').trim();if(!/^[a-f\d]{64}$/i.test(localKey))throw Error('Valid database master key required');if(timingSafeEqual(key,Buffer.from(localKey,'hex')))throw Error('Backup encryption and database master keys must be different');
+  mkdirSync(dirname(destination),{recursive:true});const temp=mkdtempSync(join(dirname(destination),'.folio-backup-'));restrictFile(temp);const snapshot=join(temp,'snapshot.sqlite');let db,manifest;
+  try{
+    db=new DatabaseSync(source);db.exec('PRAGMA busy_timeout=10000');db.prepare('VACUUM INTO ?').run(snapshot);db.close();db=null;restrictFile(snapshot);
+    const captured=new DatabaseSync(snapshot,{readOnly:true});try{if(captured.prepare('PRAGMA integrity_check').get().integrity_check!=='ok'||captured.prepare('PRAGMA foreign_key_check').all().length)throw Error('Snapshot integrity failed');manifest={format:1,captured_at:now.toISOString(),schema:captured.prepare('SELECT name FROM schema_migrations ORDER BY name').all().map(r=>r.name),counts:Object.fromEntries(captured.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(r=>[r.name,captured.prepare(`SELECT COUNT(*) AS n FROM "${r.name.replaceAll('"','""')}"`).get().n])),configuration:configSnapshot(configFile),master_key_included:false};}finally{captured.close();}
+    const bytes=readFileSync(snapshot);manifest.database_sha256=sha(bytes);manifest.master_key_check=createHmac('sha256',Buffer.from(localKey,'hex')).update(manifest.database_sha256).digest('hex');const plaintext=Buffer.from(JSON.stringify({manifest,database:bytes.toString('base64')})),iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,iv);cipher.setAAD(magic);const encrypted=Buffer.concat([cipher.update(plaintext),cipher.final()]);
+    writeFileSync(destination,Buffer.concat([magic,iv,cipher.getAuthTag(),encrypted]),{flag:'wx',mode:0o600});restrictFile(destination);return{archive:destination,captured_at:manifest.captured_at,database_sha256:manifest.database_sha256,bytes:statSync(destination).size,tables:Object.keys(manifest.counts).length,master_key_included:false};
+  }catch(e){db?.close();throw e;}finally{if(existsSync(snapshot))unlinkSync(snapshot);rmdirSync(temp);}
+}
+export function readEncryptedBackup(path,{keyFile=process.env.ERP_BACKUP_KEY_FILE}={}){
+  const bytes=readFileSync(path);if(!bytes.subarray(0,magic.length).equals(magic)||bytes.length<magic.length+29)throw Error('Unsupported backup archive');const n=magic.length,decipher=createDecipheriv('aes-256-gcm',keyFrom(keyFile),bytes.subarray(n,n+12));decipher.setAAD(magic);decipher.setAuthTag(bytes.subarray(n+12,n+28));let result;try{result=JSON.parse(Buffer.concat([decipher.update(bytes.subarray(n+28)),decipher.final()]).toString('utf8'));}catch{throw Error('Backup authentication failed; wrong key or corrupted archive');}
+  const database=Buffer.from(result.database,'base64');if(result.manifest.format!==1||sha(database)!==result.manifest.database_sha256)throw Error('Backup checksum mismatch');return{manifest:result.manifest,database};
+}
+export function restoreEncryptedBackup(archive,destinationPath,{keyFile=process.env.ERP_BACKUP_KEY_FILE,masterKeyFile=process.env.ERP_RESTORE_MASTER_KEY_FILE}={}){
+  if(['postgres','supabase'].includes(process.env.ERP_DATABASE_PROVIDER))throw Error('PostgreSQL selected: use restore:postgres; SQLite fallback is prohibited');
+  const started=performance.now(),destination=resolve(destinationPath);if(existsSync(destination)||existsSync(destination+'.key')||existsSync(destination+'-wal')||existsSync(destination+'-shm')||existsSync(destination+'.recovery.env'))throw Error('Restore requires an unused isolated database path');
+  if(!masterKeyFile||!/^[a-f\d]{64}$/i.test(readFileSync(masterKeyFile,'utf8').trim()))throw Error('Original database key is required separately for recovery');
+  const {manifest,database}=readEncryptedBackup(archive,{keyFile});if(!manifest.schema?.includes('012_release_hardening.sql'))throw Error('This restore requires a release-hardened snapshot with persistent quarantine support');if(createHmac('sha256',Buffer.from(readFileSync(masterKeyFile,'utf8').trim(),'hex')).update(manifest.database_sha256).digest('hex')!==manifest.master_key_check)throw Error('Recovery master key does not match this backup');mkdirSync(dirname(destination),{recursive:true});
+  writeFileSync(destination,database,{flag:'wx',mode:0o600});restrictFile(destination);copyFileSync(masterKeyFile,destination+'.key',constants.COPYFILE_EXCL);restrictFile(destination+'.key');
+  const db=new DatabaseSync(destination);try{db.exec('BEGIN IMMEDIATE');if(db.prepare('PRAGMA integrity_check').get().integrity_check!=='ok'||db.prepare('PRAGMA foreign_key_check').all().length)throw Error('Restored database integrity failed');
+    for(const [table,n]of Object.entries(manifest.counts))if(db.prepare(`SELECT COUNT(*) AS n FROM "${table.replaceAll('"','""')}"`).get().n!==n)throw Error('Restored record counts differ');
+    // No network-capable application may open the copy before this persistent fence.
+    db.prepare('UPDATE release_environment SET quarantined=1,reason=? WHERE id=1').run('Isolated restore verification; external delivery and automatic retention blocked');db.exec('DELETE FROM sessions; DELETE FROM oidc_attempts; UPDATE auth_resets SET used=1; COMMIT');
+  }catch(e){if(db.isTransaction)db.exec('ROLLBACK');throw e;}finally{db.close();}
+  const template=Object.entries({...manifest.configuration,NODE_ENV:'development',HOST:'127.0.0.1',PORT:'3002',ERP_SECURE_COOKIES:'false',ERP_DB:destination,ERP_JOBS_ENABLED:'false',ERP_TRANSPORTS_ENABLED:'false'}).filter(([k])=>!['ERP_PUBLIC_ORIGIN','ERP_OIDC_ISSUER','ERP_OIDC_CLIENT_ID','ERP_OIDC_REDIRECT_URI'].includes(k)).map(([k,v])=>`${k}=${v}`).join('\n')+'\n';
+  writeFileSync(destination+'.recovery.env',template,{flag:'wx',mode:0o600});restrictFile(destination+'.recovery.env');return{destination,captured_at:manifest.captured_at,restore_ms:Math.round(performance.now()-started),counts_verified:true,quarantined:true,configuration:destination+'.recovery.env'};
+}
+export function pruneEncryptedBackups(directory,{keyFile=process.env.ERP_BACKUP_KEY_FILE,days,now=new Date()}={}){
+  if(!Number.isInteger(days)||days<1||days>36500)throw Error('Set explicit backup retention days, 1–36500');const root=resolve(directory),rows=readdirSync(root).filter(n=>/^folio-backup-[\dTZ-]+-[a-f\d-]+\.erpbackup$/.test(n)).map(n=>{const file=join(root,n);if(lstatSync(file).isSymbolicLink())throw Error('Symlink archive rejected');return{file,captured:readEncryptedBackup(file,{keyFile}).manifest.captured_at};}).sort((a,b)=>b.captured.localeCompare(a.captured));
+  const deleted=[];for(const row of rows.slice(2))if(Date.parse(row.captured)<now.getTime()-days*86400000){unlinkSync(row.file);deleted.push(row.file);}return{deleted,retained:rows.length-deleted.length,minimum_retained:2};
+}
+export const archiveFilename=(now=new Date())=>'folio-backup-'+now.toISOString().replaceAll(/[:.]/g,'-')+'-'+randomUUID()+'.erpbackup';

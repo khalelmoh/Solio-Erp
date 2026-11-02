@@ -1,0 +1,18 @@
+ALTER TABLE sessions ADD COLUMN auth_strength INTEGER NOT NULL DEFAULT 1 CHECK(auth_strength IN(1,2));
+ALTER TABLE oidc_attempts ADD COLUMN provider_mfa INTEGER NOT NULL DEFAULT 0 CHECK(provider_mfa IN(0,1));
+CREATE TABLE auth_limits(bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,reset_at INTEGER NOT NULL);
+CREATE TABLE auth_resets(token_hash TEXT PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),issuer_id INTEGER NOT NULL REFERENCES users(id),expires INTEGER NOT NULL,used INTEGER NOT NULL DEFAULT 0 CHECK(used IN(0,1)));
+CREATE TABLE user_access_events(id INTEGER PRIMARY KEY,user_id INTEGER NOT NULL REFERENCES users(id),enabled INTEGER NOT NULL CHECK(enabled IN(0,1)),reason TEXT NOT NULL,actor_id INTEGER NOT NULL REFERENCES users(id),created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE release_final_review_evidence(review_id INTEGER PRIMARY KEY REFERENCES el_final_reviews(id),inputs_encrypted TEXT NOT NULL,fingerprint TEXT NOT NULL);
+CREATE TABLE release_environment(id INTEGER PRIMARY KEY CHECK(id=1),quarantined INTEGER NOT NULL DEFAULT 0 CHECK(quarantined IN(0,1)),reason TEXT NOT NULL);
+INSERT INTO release_environment VALUES(1,0,'Original environment; restored copies must enter quarantine');
+INSERT INTO controls(name,value) VALUES('privileged_mfa_required','false');
+CREATE INDEX idx_payments_bill ON payments(bill_id);
+CREATE INDEX idx_journal_lines_project ON journal_lines(project_id,journal_id);
+CREATE INDEX idx_hr_profiles_effective ON hr_profiles(employee_id,effective_date,id);
+CREATE INDEX idx_audit_actor ON audit(actor_id,id);
+CREATE INDEX idx_auth_limits_expiry ON auth_limits(reset_at);
+CREATE TRIGGER immutable_user_access_events_UPDATE BEFORE UPDATE ON user_access_events BEGIN SELECT RAISE(ABORT,'Immutable access evidence'); END;
+CREATE TRIGGER immutable_user_access_events_DELETE BEFORE DELETE ON user_access_events BEGIN SELECT RAISE(ABORT,'Immutable access evidence'); END;
+CREATE TRIGGER immutable_release_final_review_UPDATE BEFORE UPDATE ON release_final_review_evidence BEGIN SELECT RAISE(ABORT,'Immutable final review evidence'); END;
+CREATE TRIGGER immutable_release_final_review_DELETE BEFORE DELETE ON release_final_review_evidence BEGIN SELECT RAISE(ABORT,'Immutable final review evidence'); END;

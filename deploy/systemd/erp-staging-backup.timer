@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily encrypted synthetic staging backup (target installation unverified)
+[Timer]
+OnCalendar=*-*-* 01:00:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+Unit=erp-staging-backup.service
+[Install]
+WantedBy=timers.target

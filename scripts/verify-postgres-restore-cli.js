@@ -1,0 +1,13 @@
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import {openPostgres} from '../src/postgres-db.js';
+import {ERP} from '../.cache/postgres-runtime/src/service.js';
+const config=JSON.parse(readFileSync('.cache/postgres/test.env.json','utf8')),proof=JSON.parse(readFileSync('artifacts/postgres-migration-recovery.json','utf8')),id=randomUUID().replaceAll('-',''),database='cli_recovery_'+id,schema='erp_recovery',key='.cache/postgres/recovered-'+id+'.key',urlFile='.cache/postgres/restore-owner-'+id+'.key';
+assert.equal(existsSync(key),false);const owner=new pg.Client({connectionString:config.owner});await owner.connect();try{await owner.query('CREATE DATABASE "'+database+'"');}finally{await owner.end();}
+const target=raw=>{const url=new URL(raw);url.pathname='/'+database;return url.href;};writeFileSync(urlFile,target(config.owner),{flag:'wx',mode:0o600});
+const result=await promisify(execFile)(process.execPath,['scripts/postgres-tools.js','restore',proof.archive_file,key],{env:{...process.env,ERP_DATABASE_PROVIDER:'postgres',ERP_POSTGRES_URL_FILE:urlFile,ERP_POSTGRES_SCHEMA:schema,ERP_MASTER_KEY_FILE:'.cache/postgres/absent-original-key-'+id,ERP_BACKUP_KEY_FILE:'.cache/postgres/backup.key'},windowsHide:true,maxBuffer:8388608});const receipt=JSON.parse(result.stdout);assert.equal(receipt.record_key_written,true);
+const db=await openPostgres(null,{env:{ERP_POSTGRES_URL:target(config.application),ERP_POSTGRES_SCHEMA:schema,ERP_MASTER_KEY_FILE:key}});try{const erp=new ERP(db),finance=await erp.login('finance@demo.erp','Demo-only-2026!'),totals=(await erp.orgReport(finance.user.id,{to:'2026-12-31'})).totals;assert.deepEqual(totals,proof.financial_totals);assert.equal(await erp.quarantined(),true);const file=await erp.get('SELECT id FROM acc_evidence ORDER BY id DESC LIMIT 1');assert.match(Buffer.from((await erp.accountingEvidence(finance.user.id,file.id)).content,'base64').toString(),/SYNTHETIC ONLY/);writeFileSync('artifacts/postgres-restore-cli.json',JSON.stringify({checked_at:new Date().toISOString(),passed:true,separate_database:database,schema,original_record_key_not_provided:true,recovered_key_file_created:true,authentication:true,attachment:true,financial_totals:totals,quarantined:true,source_archive_sha256:proof.backup.sha256,scope:'synthetic disposable recovery CLI; no live target or human acceptance'},null,2));console.log(JSON.stringify({passed:true,original_record_key_not_provided:true,protected_recovered_key:true,authentication:true,attachment:true,cash:totals.closing_cash}));}finally{await db.close();}

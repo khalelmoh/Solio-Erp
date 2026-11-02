@@ -1,0 +1,13 @@
+# Stage 3: HR and project payroll
+
+This extends the established Node/SQLite, encrypted HR evidence and serialized financial transactions. USD remains fixed. Timesheet hours determine cost allocation, not hourly base wages. Overtime is an independently approved USD supplement.
+
+Effective employee profiles and contracts retain history. Bank/payment changes require independent approval, and private documents have explicit sharing/expiry rules. Supervisors see assigned staff, presence, project time and leave without salary/payment data. Explicit preparer/approver/Finance capabilities remain separate from project membership and employee self-service.
+
+Schedules/holidays determine available work minutes and managed leave. Reviewed imports and approved corrections preserve original attendance. Approved timesheets cannot overlap or exceed approved presence/scheduled hours. Pending leave reserves entitlement; elapsed approved leave consumes it, and cancellation releases reservations. Accrual, carryover, expiry and eligibility are configuration, never asserted Somaliland legal defaults. Provisional statutory policies block payroll finalization; demonstration policies are explicitly labelled.
+
+Controlled payroll periods can differ from calendar months. Calculations snapshot daily effective salary versions, unpaid leave, overtime, approved allocation percentages/timesheets, policy and rounding. All employer cost is allocated; invalid funding/component/budget allocations fail atomically. Forecast time costs are separate from posted actuals. Payroll approval reserves cost; posting rechecks and releases that reservation.
+
+Salary advances use GL 1250, distinct from spending advances. Their disbursement consumes cash and creates receivables without expense. Payroll recovery credits the original project/source receivable and reduces the corresponding net salary liability, without reducing gross expense. It cannot silently transfer receivables across sources. GL 2110 holds statutory remittances and GL 2120 holds other deductions/benefits. Payment batches post existing independently approved vouchers atomically; payments never create salary expense. Linked reversals restore both salary-advance balances and original payroll authority under the existing period-lock process.
+
+Existing financial data is preserved. Legacy monthly interfaces remain compatible, while the Stage 3 managed workflow requires schedules, approved policies and approved allocation evidence. The Somaliland policies remain provisional until the organization supplies validated references and independent approval. No attendance device, bank submission or statutory filing connection is claimed.

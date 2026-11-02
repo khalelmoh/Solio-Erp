@@ -1,0 +1,10 @@
+import {buildPostgresRuntime} from './build-postgres-runtime.js';
+import {writeFileSync,readdirSync} from 'node:fs';
+import {resolve,join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const extra=process.argv.slice(2),all=[...new Set(['tests/helpers.js','tests/accounting-helpers.js','tests/organization-helpers.js',...extra])],result=buildPostgresRuntime({extra:all});
+const source=JSON.stringify(pathToFileURL(resolve('tests/postgres-fixture.js')).href);
+writeFileSync(join(result.output,'tests/helpers.js'),'export {postgresFixture as fixture} from '+source+';\n');
+writeFileSync(join(result.output,'tests/accounting-helpers.js'),'import {postgresFixture} from '+source+'; export const accountingFixture=()=>postgresFixture("accounting");\n');
+writeFileSync(join(result.output,'tests/concurrent-worker.js'),'import '+JSON.stringify(pathToFileURL(resolve('tests/postgres/worker.js')).href)+';\n');
+console.log(JSON.stringify(result));

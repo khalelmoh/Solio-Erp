@@ -1,0 +1,2 @@
+.comp-component label:has(input[type=checkbox]){display:flex;align-items:center;gap:8px}.comp-component input[type=checkbox]{width:auto}.comp-component{margin:12px 0}#comp-preview{background:#eef6f3;border-radius:8px;padding:12px}#comp-preview:empty{display:none}
+@media print{body.payroll-print #content>*{display:none!important}body.payroll-print #content>#private-payslip-panel{display:block!important}body.payroll-print #private-payslip-panel button{display:none!important}}

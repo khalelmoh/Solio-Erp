@@ -1,0 +1,16 @@
+[Unit]
+Description=Encrypted staging PostgreSQL archive and configured test failure alert
+After=network-online.target
+[Service]
+Type=oneshot
+User=erp-staging
+Group=erp-staging
+WorkingDirectory=/opt/erp-staging/current
+EnvironmentFile=/etc/erp-staging/backup.env
+ExecStart=/bin/bash deploy/staging-postgres-backup.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/erp-staging /var/lib/erp-staging

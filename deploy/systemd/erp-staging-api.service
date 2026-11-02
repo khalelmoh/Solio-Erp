@@ -1,0 +1,25 @@
+[Unit]
+Description=ERP private synthetic staging PostgreSQL API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=erp-staging
+Group=erp-staging
+WorkingDirectory=/opt/erp-staging/current
+EnvironmentFile=/etc/erp-staging/backend.env
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/erp-staging
+# Exactly one API service/release. Do not run independent SQLite copies or overlapping versions.
+# Build the async runtime on this host before starting. Backend and migrator secrets are separate.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+# Application completion — version 0.3
+
+Extend the established Node/SQLite/browser stack and preserve existing records and financial invariants. Keep organizational decisions separate from shipped demo settings. The user's service preference is standard/common providers; use SMTP, HMAC-signed webhooks, authenticator MFA and a Docker/Caddy HTTPS deployment. Statutory jurisdiction/rates and real provider credentials cannot be inferred from those technical choices.
+
+## Scope and acceptance
+
+- Project document comments/replies/resolution with location and permission checks. Durable in-app overdue notifications, read/acknowledgment, deduplication and scheduled scanning. Optional SMTP delivery is configured explicitly, queued, retried and tested against a local SMTP fixture, never a real recipient by default.
+- Time-limited project approval delegation with independent administrator issuance, revocation, original principal evidence and both principal/delegate separation-of-duties checks. Re-delegation is prohibited. Configurable payment/journal/payroll approval policies, snapshotted on submission.
+- Payment vouchers and direct expenses with evidence and independent approval; existing legacy payment API can be disabled by a named control. New screens always use vouchers. Supplier invoice reissue requires full prior reversal and a linked correction, preserving canonical identity and retry/concurrency checks. General adjusting journals require approval, linked original evidence, an open posting period and explicit allocation charges where budget consumption differs from accounting.
+- Employee records protected by separate HR/payroll organization roles and encrypted at rest. Attendance and leave workflows. Effective-dated payroll configurations with explicit jurisdiction, fixed/percentage/bracket rules and no guessed statutory rates. Payroll allocates gross/employer costs to projects, reserves budget on approval, posts actual once, separately pays net/statutory liabilities, and never posts attendance estimates as actuals. Same employee/pay period cannot post twice; corrected runs link to fully reversed originals.
+- Donor award ceilings versioned and independently approved, checked at reservation/charge entry. The user-selected organization currency is USD only, with two decimal places. Foreign-currency definitions, rates, invoice conversion and native cash workflows are disabled by backend and database policy.
+- Integration configurations/outbox/inbound event identities/HMAC signatures and idempotent financial mappings. Secrets are encrypted/redacted. Actual providers must be configured; no unspecified bank API is fabricated. Test local contract endpoints and retries before any live activation.
+- Password changes, session revocation, TOTP/recovery, production preflight, consistent encrypted-data backup/restore drill, integrity/accounting checks, reproducible container assets and HTTPS proxy configuration. Production readiness remains false until real jurisdiction/policy/provider/hosting/security/load checks are verified.
+- Shared supplier/item reference catalogs, printable approval-bearing POs/vouchers and optional OpenID Connect sign-in with PKCE/state/nonce/signature validation, preprovisioned-user mapping and local MFA enforcement.
+
+## Exact-money and permission rules
+
+All monetary calculations use integer minor units and BigInt rational rounding (half up, explicit currency scale). Approved request reservations stay separate from accounting liabilities. Posting and retries remain atomic under BEGIN IMMEDIATE. Payroll details never appear in ordinary project APIs or audit payloads. Notification/integration transport occurs outside financial database transactions through durable delivery records.
+
+Implemented scope is specified in [completion runbook](completion-runbook.md). All monetary documents and integrations use USD; foreign currency expansion is excluded from the user-selected scope. Salary terms and results use field encryption; financial allocations/reference fields require protected database/storage access. Version 0.4 adds non-hourly compensation, benefits/proration and project warehouse inventory; see payroll-inventory-design.md. Statutory filing submission and advanced warehouse/production tracking remain outside this release.
+
+## Chosen deployment basis and references
+
+Use supported Node 24 LTS in the container, persistent database/key volumes outside OneDrive, Caddy HTTPS and SMTP transport. [Node release policy](https://nodejs.org/en/about/previous-releases) recommends LTS for production; the installed Node 25 development runtime is EOL and cannot satisfy production preflight. [Caddy HTTPS](https://caddyserver.com/docs/automatic-https) requires an actual hostname/network setup for public certificates. MFA follows [RFC 6238](https://datatracker.ietf.org/doc/html/rfc6238).

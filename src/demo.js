@@ -1,0 +1,31 @@
+import { randomUUID } from 'node:crypto';
+import { ERP } from './service.js';
+export const DEMO_PASSWORD = 'Demo-only-2026!';
+export function seedDemo(db) {
+  if(db.prepare('SELECT COUNT(*) AS n FROM users').get().n || db.prepare('SELECT COUNT(*) AS n FROM projects').get().n) throw new Error('Demo seeding requires an empty database; existing records were preserved');
+  const e=new ERP(db);
+  const users={};
+  for(const [role,name] of [['admin','Demo Administrator'],['manager','Amina Hassan'],['finance','Yusuf Ali'],['requester','Samira Osman'],['outsider','Unassigned Demo User']]) users[role]=e.createUser({name,email:`${role}@demo.erp`,password:DEMO_PASSWORD,admin:role==='admin'});
+  const op=(role,action,data)=>e.execute(users[role],action,data,randomUUID());
+  for(const [role,name]of [['admin','hr'],['finance','payroll'],['manager','payroll']])op('admin','org.role',{user_id:users[role],role:name,enabled:true});
+  for(const kind of ['budget','spending']) op('admin','policy.set',{kind,rules:[{min:'0.00',max:null,levels:[['manager','finance']]}]});
+  op('admin','period.set',{start_date:'2026-01-01',end_date:'2026-12-31',state:'open'});
+  const p=op('manager','project.create',{code:'DEMO-HEALTH-26',name:'Community Health Initiative',description:'DEMONSTRATION DATA — funded outreach, equipment and community health training.',department:'Community Programs',start_date:'2026-01-01',end_date:'2026-12-31',activities:['Outreach','General']}).id;
+  db.prepare('UPDATE projects SET demo=1 WHERE id=?').run(p);
+  for(const [role,user_id] of Object.entries(users)) if(role!=='manager' && role!=='outsider') op('admin','membership.set',{project_id:p,user_id,role:role==='admin'?'viewer':role});
+  const b=op('manager','budget.submit',{project_id:p,reason:'Original demonstration budget',lines:[{category:'Equipment',activity:'Outreach',start_date:'2026-01-01',end_date:'2026-12-31',amount:'50000.00'}]}).id;
+  op('finance','budget.approve',{id:b});
+  const source=op('manager','source.create',{project_id:p,name:'Community Development Fund (Demo)',type:'donor',categories:['Equipment'],start_date:'2026-01-01',end_date:'2026-12-31'}).id;
+  op('finance','funding.promise',{source_id:source,amount:'50000.00',reference:'DEMO-AWARD-001',date:'2026-02-01'});
+  op('finance','funding.receive',{source_id:source,account_id:1,amount:'40000.00',reference:'DEMO-RECEIPT-001',date:'2026-02-02'});
+  const r=op('requester','request.submit',{title:'Outreach diagnostic equipment',date:'2026-02-03',lines:[{project_id:p,source_id:source,category:'Equipment',activity:'Outreach',amount:'10000.00'}]}).id;
+  op('manager','request.approve',{id:r});
+  const po=op('manager','po.create',{request_id:r,supplier:'Demo Medical Supplies',reference:'DEMO-PO-001',date:'2026-02-04'}).id;
+  const line=e.all('SELECT id FROM request_lines WHERE request_id=?',r)[0].id;
+  const bill=op('finance','bill.post',{po_id:po,invoice:'DEMO-INV-001',date:'2026-02-05',cost_type:'expense',lines:[{request_line_id:line,amount:'6000.00'}]}).id;
+  op('finance','payment.post',{bill_id:bill,amount:'4000.00',account_id:1,reference:'DEMO-PAY-001',date:'2026-02-06'});
+  const overhead=op('admin','project.create',{code:'DEMO-OVERHEAD-26',name:'Organization Overheads',description:'DEMONSTRATION DATA — shared administration and support costs, budgeted separately.',department:'Administration',start_date:'2026-01-01',end_date:'2026-12-31',activities:['General'],demo:true}).id;
+  op('admin','membership.set',{project_id:overhead,user_id:users.finance,role:'finance'});
+  op('admin','membership.set',{project_id:overhead,user_id:users.manager,role:'manager'});
+  return {users,project:p,source,request:r,po,bill,line,overhead,metrics:e.metrics(p)};
+}
