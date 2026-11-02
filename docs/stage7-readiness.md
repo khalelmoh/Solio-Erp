@@ -1,5 +1,7 @@
 # Stage 7 readiness register
 
+Update 2026-11-02: source is published to `khalelmoh/Solio-Erp`. The first actual Vercel build failed because `ERP_BACKEND_ORIGIN` is missing; the user confirms there is no hosted Node API. Render preparation is now in [the hosting guide](render-staging.md), with a synthetic-only PostgreSQL startup entry, manual deployment, disabled jobs/transports and secret-file configuration. Five focused local checks and an isolated async-runtime build pass; no Render/Supabase target has been provisioned or verified. Hosting owner: sign in to Render/connect the repository and identify the isolated Supabase project. Engineering/Supabase owner: configure the constrained role, lock capacity, migrations and protected keys before startup. Vercel owner: set the actual API origin and matching proxy secret after backend health verification, then redeploy. These actions do not authorize real records or production. Historical readiness details below remain historical.
+
 Updated 2026-10-26. Build 0.12.0 / schema13. **Not ready for selected Supabase staging, a real-record pilot or production. Local synthetic UAT may continue.**
 
 The user reports that the completed guided synthetic project-finance walkthrough ran smoothly. That specific scenario passed with actual five-value confirmation. Remaining workflows and production are not accepted by that report. Full role worksheets are still incomplete.

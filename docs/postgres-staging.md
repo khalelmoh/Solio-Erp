@@ -2,6 +2,16 @@
 
 The selected target is Vercel for the static frontend, an independent persistent Node24 API host, and one Supabase PostgreSQL database/private schema. Local verification uses disposable PostgreSQL17.6; it does not establish actual Supabase readiness. Use a currently supported, patched database on the real target and rerun acceptance there.
 
+## Vercel build requires the hosted API address
+
+If `npm run build:vercel` exits with `ERP_BACKEND_ORIGIN` missing or invalid, the frontend has no configured API destination. In the Vercel **Solio-Erp** project, open **Settings > Environment Variables** and set `ERP_BACKEND_ORIGIN` to the actual hosted Node API's HTTPS origin, without `/api` or another path. Enable it for each deployment environment you use, then redeploy; changing a local `.env` does not configure Vercel. The build intentionally fails until a destination is configured.
+
+The Supabase project/database endpoint is not this API address. Provision and verify the persistent Node24 API host connected to the single Supabase PostgreSQL database first if no API host exists. Do not substitute a made-up address, a local `127.0.0.1` URL, or disable the build guard to obtain a successful but nonfunctional frontend deployment.
+
+Configure a matching private `ERP_PROXY_SECRET` on Vercel and the backend, and set backend `ERP_PUBLIC_ORIGIN` to the actual frontend HTTPS origin with secure cookies enabled. Keep PostgreSQL credentials, record keys and migration credentials on the backend. Verify `/api/health`, authentication, authorization and financial/report behavior on the actual staging target before treating deployment as complete.
+
+The npm `Unknown env config "cache-dir"` warning does not explain this missing-origin failure. A manually configured npm cache setting should use `NPM_CONFIG_CACHE`; retain the actual final error and exit code when diagnosing builds.
+
 ## Backend and database configuration
 
 Use [supabase.env.example](../deploy/supabase.env.example). Keep the actual backend file, record key, independent backup key, database URLs and proxy secret outside source/releases. Configure real HTTPS and private ingress; disable live transports and automatic deletion. Application identities/MFA and HR/project permissions remain in the ERP. Supabase Auth, Edge Functions and Storage are not substituted for them.

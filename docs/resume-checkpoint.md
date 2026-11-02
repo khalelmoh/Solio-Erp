@@ -1,5 +1,13 @@
 # ERP resume checkpoint — 2026-11-02
 
+## Latest hosting task
+
+The source-only release is on GitHub `https://github.com/khalelmoh/Solio-Erp`, branch main (initial commitfe0cc00). Repository is public; .env, databases, keys, .cache, artifacts and local tool configuration are ignored. The local ERP has its own Git repository, separate from the parent website. GitHub CLI account is khalelmoh, with write access. Never print the protected admin credentials.
+
+Actual Vercel deployment dpl_DDPjKGXxs6JDrMLtr4fdmrFpd8Ds failed because ERP_BACKEND_ORIGIN is absent, not because of the npm cache-dir warning. User supplied the log and confirmed **no hosted backend yet**. Render preparation and next steps are in [render-staging.md](render-staging.md) and render.yaml: native Node24, Supabase PostgreSQL, dedicated scripts/start-private-staging.js, one instance, manual deployment, secret files, jobs/transports disabled. The outdated Node/SQLite error message has been corrected; the build guard remains. Five focused Vercel/staging checks and an isolated .cache/render-build-rehearsal build pass. Actual account/project setup, migrations, private access and target validation remain unverified; no cloud service or real records were created. Next user action: sign in to Render and connect khalelmoh/Solio-Erp; supply only the synthetic Supabase project reference/account readiness, never secret values in chat. Review service plan/region before service creation. Do not invent ERP_BACKEND_ORIGIN.
+
+Canonical src/vercel-build.js changed for this diagnostic, so existing local PostgreSQL preview code should be rebuilt on its next restart; do not use the isolated rehearsal output as a replacement ledger. Saved/UAT databases and financial records remain untouched.
+
 ## Current task: Branded visual identity and analytical dashboard
 
 Build **0.16.0** implements the new navy/teal/blue/violet/gold brief, replacing the previous white-and-grey direction. Read [current release/screenshots/setup](visual-identity-release.md) and `artifacts/visual-identity-release.json`. Reuses the existing ledger, controls and forms; adds the scoped period-receipts summary/drill-down, four-card composition, readable charts with remaining authority, desktop collapsed navigation and shared styling. No dependencies or migrations changed. Actual organization display name/logo remain unprovided; approved color tokens are implemented and Folio remains the product fallback.

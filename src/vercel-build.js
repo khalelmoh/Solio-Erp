@@ -2,7 +2,7 @@ import {readFileSync,writeFileSync,mkdirSync,readdirSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 
 export function buildVercel({root=process.cwd(),output=resolve(root,'.vercel/output'),backend=process.env.ERP_BACKEND_ORIGIN}={}){
-  let origin;try{origin=new URL(backend);}catch{throw Error('Set ERP_BACKEND_ORIGIN to the HTTPS URL of the persistent Node/SQLite backend');}
+  let origin;try{origin=new URL(backend);}catch{throw Error('ERP_BACKEND_ORIGIN is missing or invalid. In Vercel Project Settings > Environment Variables, set it to the hosted ERP Node API HTTPS origin, then redeploy. The Supabase database URL is not the Node API origin.');}
   if(origin.protocol!=='https:'||origin.username||origin.password||origin.search||origin.hash||origin.pathname!=='/'||['localhost','127.0.0.1'].includes(origin.hostname))throw Error('Backend must be a public HTTPS origin without credentials or a path');
   const version=encodeURIComponent(JSON.parse(readFileSync(join(root,'package.json'),'utf8')).version),destination=join(output,'static');mkdirSync(destination,{recursive:true});
   const assets=readdirSync(join(root,'public')).filter(n=>/^[\w-]+\.(html|js|css|svg)$/.test(n));

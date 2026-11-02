@@ -1,0 +1,51 @@
+# Synthetic staging only. Review the compute plan before creating a service.
+# No database, credentials, migration job, worker or real records are created here.
+services:
+  - type: web
+    name: solio-erp-staging-api
+    runtime: node
+    repo: https://github.com/khalelmoh/Solio-Erp
+    branch: main
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --include=dev && npm run build:postgres && npm prune --omit=dev
+    startCommand: node scripts/start-private-staging.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.2
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "10000"
+      - key: ERP_DATABASE_PROVIDER
+        value: supabase
+      - key: ERP_STAGING_SYNTHETIC_ONLY
+        value: "true"
+      - key: ERP_TRANSPORTS_ENABLED
+        value: "false"
+      - key: ERP_JOBS_ENABLED
+        value: "false"
+      - key: ERP_SECURE_COOKIES
+        value: "true"
+      - key: ERP_SESSION_COOKIE
+        value: solio_staging_session
+      - key: ERP_TIMEZONE
+        value: Africa/Mogadishu
+      - key: ERP_POSTGRES_SCHEMA
+        value: erp_private
+      - key: ERP_POSTGRES_TLS
+        value: "true"
+      - key: ERP_POSTGRES_CONNECTION_MODE
+        value: session
+      - key: ERP_POSTGRES_URL_FILE
+        value: /etc/secrets/erp_postgres_runtime_url
+      - key: ERP_MASTER_KEY_FILE
+        value: /etc/secrets/erp_record_key
+      - key: ERP_PUBLIC_ORIGIN
+        sync: false
+      - key: ERP_PROXY_SECRET
+        sync: false

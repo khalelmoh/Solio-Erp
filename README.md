@@ -4,6 +4,8 @@ A new ERP for organization operations and funded-project budgets, spending and a
 
 **Current build: 0.16.0.** The [visual identity release](docs/visual-identity-release.md) applies the supplied navy/teal palette, collapsed desktop navigation, four primary dashboard figures, cash and budget analysis, shared component styling and verified contrast. It includes actual desktop/mobile, Finance, HR and complete transaction-journey screenshots, setup instructions and provider-specific results. Current measured evidence: `artifacts/visual-identity-release.json`.
 
+**Vercel setup:** If the build reports missing `ERP_BACKEND_ORIGIN`, a hosted Node API is required first. The [Render + Supabase staging guide](docs/render-staging.md) and `render.yaml` prepare that service without uploading a local database. Actual account/project configuration, migrations, private access and deployment verification remain required.
+
 The [transaction workspace and first-use guide](docs/workspace-journeys.md) covers role-based entry, review steps, record details, setup guidance and branding configuration. Its earlier evidence is `artifacts/workspace-experience-release.json`. The [guided workflows update](docs/guided-workflows.md) covers receipts, supplier payments, advance issue/settlement/return and employee registration. The selected architecture remains **Vercel + persistent Node24 API + Supabase PostgreSQL**. Actual Supabase/private-host verification remains pending configuration; see the [PostgreSQL integration guide](docs/postgres-integration.md) and [PostgreSQL release report](docs/postgres-release.md). Saved SQLite and paused guided-UAT records remain untouched.
 
 ## PostgreSQL private-staging preparation
