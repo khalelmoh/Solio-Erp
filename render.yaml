@@ -1,4 +1,4 @@
-# Synthetic staging only. Review the compute plan before creating a service.
+# Free synthetic testing only; idle sleep and usage limits apply.
 # No database, credentials, migration job, worker or real records are created here.
 services:
   - type: web
@@ -6,7 +6,7 @@ services:
     runtime: node
     repo: https://github.com/khalelmoh/Solio-Erp
     branch: main
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     autoDeployTrigger: "off"
     buildCommand: npm ci --include=dev && npm run build:postgres && npm prune --omit=dev
