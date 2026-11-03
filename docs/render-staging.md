@@ -1,6 +1,6 @@
 # Render Node API + Supabase + Vercel
 
-Updated 3 November 2026. The user created the Render Free service, whose reported startup failed on missing configuration. The synthetic Supabase database is now initialized and its restricted runtime connection and MFA administrator authentication are verified. Render secret files, successful API startup and the Vercel proxy remain pending. See [measured target status](supabase-staging-status.md); this is not a verified full deployment.
+Updated 3 November 2026. The synthetic Supabase database, restricted runtime connection and MFA administrator authentication are initialized and verified. The corrected Render service passed HTTPS health/access controls; Vercel frontend/API health plus automated Chromium MFA login, dashboard, secure session and sign-out passed. Human findings, complete financial/attachment flows, restart persistence and recovery remain pending. See [measured target status](supabase-staging-status.md) for current evidence and owner actions. Setup steps below remain the configuration reference, not additional service-creation instructions.
 
 The selected architecture has three parts:
 
