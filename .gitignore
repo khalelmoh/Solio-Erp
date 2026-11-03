@@ -9,6 +9,8 @@ data/
 !.env.example
 *.key
 .cache/
+supabase/.temp/
+supabase/.branches/
 .codex/
 .agents/
 .aws/

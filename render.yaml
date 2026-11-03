@@ -39,6 +39,8 @@ services:
         value: erp_private
       - key: ERP_POSTGRES_TLS
         value: "true"
+      - key: ERP_POSTGRES_CA_FILE
+        value: /etc/secrets/erp_postgres_ca
       - key: ERP_POSTGRES_CONNECTION_MODE
         value: session
       - key: ERP_POSTGRES_URL_FILE

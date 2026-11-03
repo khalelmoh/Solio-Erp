@@ -1,4 +1,14 @@
-# ERP resume checkpoint — 2026-11-02
+# ERP resume checkpoint — 2026-11-03
+
+## Current cloud connection checkpoint
+
+Latest measurement: the corrected password passed verified TLS, SQL confirmed512 locks, canonical migrations001-004 applied, and the constrained API login passed key/checksum/role validation. All276 application tables have forced RLS; browser-facing Supabase roles have no ERP schema usage. The new MFA administrator passed password-only rejection and authenticator login; test sessions were logged out. One user, zero projects and zero journals exist. See [target status and next owners](supabase-staging-status.md). Next user action: add all three protected Render secret files (runtime URL, record key, CA) and the CA path before deploying. Actual Render API URL and Vercel proxy remain unverified. Private credentials are in ignored protected files; do not print or publish them. The password-rejection paragraph below describes the resolved preceding attempt.
+
+The user created the isolated synthetic Supabase project `azhxrqgpftegvnyydxbz` in `eu-west-1`; CLI read access and the saved `max_locks_per_transaction=512` override were verified. Effective SQL configuration remains unverified. The user reports saving the proxy secret on Render and Vercel and the frontend origin `https://solio-erp-ochre.vercel.app` on Render. Actual Render API URL, secret files, successful startup and frontend proxy remain unverified.
+
+The user found Session pooler and saved connection details in the ignored, protected local setup file. The initial TLS check required a provider CA; the user then downloaded `prod-ca-2021.crt`. It was validated as the Supabase Root 2021 CA (valid until April26,2031), copied to the ignored `.cache/supabase-provider-ca.crt`, and used with certificate and hostname verification enabled. The next connection reached PostgreSQL authentication but returned SQLSTATE `28P01` (password rejected). No migrations, roles, application records or imports were applied. Next action: user corrects `DATABASE_PASSWORD=` in the protected setup file using this Supabase project's database password, then engineering repeats `.cache/supabase-target-check.mjs`. Do not disable certificate verification or put privileged credentials on the API/frontend. Saved SQLite and paused guided UAT remain untouched.
+
+Earlier hosting steps below are historical; do not create another Render service or Supabase project.
 
 ## Latest hosting task
 
