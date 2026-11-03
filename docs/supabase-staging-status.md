@@ -12,6 +12,7 @@ Measured 3 November 2026 against the newly created synthetic Supabase project in
 - A new staging administrator was bootstrapped through the existing application, with encrypted MFA enrollment and a bootstrap audit entry. Password-only login was rejected; password plus authenticator code succeeded and the test session was logged out. Credentials and enrollment/recovery material remain in ignored protected files.
 - Existing application preflight reports balanced journals and validated foreign keys. There is one administrator, zero projects and zero financial journals. This checks an initialized empty ledger; it does not establish financial scenario acceptance.
 - An isolated compilation produced55 runtime files and984 asynchronous functions from the canonical application source. The local preview runtime was not replaced or restarted.
+- After correcting the staging cookie configuration, the rebuilt HTTP API started locally against the actual constrained Supabase connection. Health, proxy-secret rejection, unauthenticated rejection, MFA login, secure cookie flags, cookie isolation and logout passed. Financial journals and projects remained zero. The private receipt is `.cache/supabase-http-evidence.json`; this is not a Render-hosted HTTPS test.
 
 Private measurement receipts are in ignored `.cache/supabase-target-preflight.json`, `.cache/supabase-initialization-evidence.json` and `.cache/supabase-bootstrap-evidence.json`. Secret files and receipts are not release artifacts or source-control inputs.
 
@@ -19,7 +20,7 @@ Private measurement receipts are in ignored `.cache/supabase-target-preflight.js
 
 | Owner | Action | Evidence still required |
 | --- | --- | --- |
-| Hosting administrator | Add the restricted runtime URL, stable record key and provider CA as Render secret files; configure the CA path and deploy the prepared Node service. | Actual HTTPS API origin and successful `/healthz`; no privileged owner credential in the API. |
+| Hosting administrator | User reports all three secret files added. Correct the existing service's `ERP_SESSION_COOKIE` to `erp_solio_staging_session`, retain the CA path, and deploy the latest commit. | The supplied Render log confirms build success and the diagnosed cookie startup failure. Actual HTTPS API origin and successful `/healthz` remain pending; no privileged owner credential belongs in the API. |
 | Hosting administrator | Set the actual API origin and matching proxy secret on Vercel; redeploy. | Same-origin API health, private access, secure cookies, MFA and protected downloads. |
 | Engineering/security | Review actual Data API exposed schemas, inherited grants and existing Storage policies/buckets. | Provider configuration receipt; current schema grants alone do not establish the full provider review. |
 | Engineering/Finance | Run target financial, concurrency, export and attachment scenarios with separate synthetic role accounts, then restart/redeploy. | Target-specific source totals and persisted IDs/attachments; local tests are historical evidence only. |

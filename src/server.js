@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { openDatabase, defaultPath } from './db.js';
 import { ERP, DomainError } from './service.js';
 import { identityProvider } from './identity.js';
-import {runtimeConfig} from './runtime.js';
+import {runtimeConfig,validateSessionCookieName} from './runtime.js';
 import {backgroundJobs} from './jobs.js';
 const applicationVersion=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version;
 
@@ -42,7 +42,7 @@ const assets = new Map([
 ]);
 export function createApp(db, {secureCookies=false,jobs={},publicOrigin=process.env.ERP_PUBLIC_ORIGIN||'',proxySecret=process.env.ERP_PROXY_SECRET||'',sessionCookie='erp_session'}={}) {
   const branding=organizationBranding();
-  if(!/^erp_[a-z0-9_]{1,48}$/.test(sessionCookie))throw Error('Invalid application session cookie name');
+  validateSessionCookieName(sessionCookie);
   const erp=new ERP(db);
   const instanceId=randomUUID();
   const identity=identityProvider(erp);

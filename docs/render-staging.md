@@ -21,6 +21,12 @@ No SQLite database is created or copied to Render. Files on the Node service are
 
 The first startup fails clearly until the database, migrations and secret files are ready. Keep the deployment manual while preparing them; `autoDeployTrigger` is off. Do not replace these prerequisites with a local database or unprotected owner credentials just to make the health check green.
 
+### Session-cookie startup correction
+
+The user-supplied Render log for commit57680bc showed a successful build followed by `Invalid application session cookie name`. The Blueprint incorrectly supplied `solio_staging_session`; the existing application requires the `erp_` prefix. Set **ERP_SESSION_COOKIE=erp_solio_staging_session** on the already-created Render service and redeploy the latest commit. The corrected Blueprint and shared preflight validation preserve the existing cookie policy and prevent this failure before opening a database connection. Do not assume a source change has replaced an existing dashboard environment override.
+
+The regression uses the actual Blueprint cookie to start an isolated API, sign in and verify HttpOnly/Secure/SameSite settings and separation from the ordinary ERP cookie. Invalid cookie values are also rejected by private-staging preflight. No database migration or financial correction is required for this defect.
+
 ## Free test-host limitations
 
 Free is selected only for the initial synthetic walkthrough. Render sleeps an idle Free web service after15 minutes and waking it can take about a minute. Usage limits and external database traffic can also affect availability. It offers no persistent disk, shell access or one-off jobs, so migration/bootstrap remain protected administrative tasks outside the service. The single Supabase database and service-managed secret files hold durable state; local service files are disposable. Always-on staging, scheduled backup delivery and any pilot require separately reviewed hosting and target checks. See [Render Free limits](https://render.com/docs/free).
@@ -44,7 +50,7 @@ Live payroll/banking, jobs, real employee/financial records, human acceptance an
 
 ## Current verification
 
-Five local checks pass: Vercel static export/proxy and staging configuration guards. The dedicated startup rejects missing provider/SQLite fallback, non-synthetic mode, enabled jobs/transports, unsafe cookies/TLS, missing secrets and incorrect host/origin. A subprocess check confirms missing configuration does not create a SQLite ledger. The existing async runtime is built from the same domain; financial operations are not changed.
+Seven focused local checks pass: Vercel static export/proxy, staging configuration guards and the Blueprint cookie startup/login regression. The dedicated startup rejects missing provider/SQLite fallback, non-synthetic mode, enabled jobs/transports, invalid session-cookie names, unsafe cookies/TLS, missing secrets and incorrect host/origin. A subprocess check confirms missing configuration does not create a SQLite ledger. The existing async runtime is built from the same domain; financial operations are not changed. The rebuilt API also passed local HTTP startup, proxy rejection, MFA login, secure cookie isolation and logout against the actual Supabase connection. This does not establish Render HTTPS success.
 
 Supabase target lock configuration, migrations001-004, forced RLS on276 application tables, restricted runtime login, matching record key, initial administrator/MFA authentication and empty-ledger preflight passed on 3 November2026. These are database/application checks from the protected administration environment; they do not prove Render startup, frontend routing, restart persistence, full target financial scenarios, scheduled recovery or human acceptance. Those checks remain pending. Credentials are not present in this repository. The npm cache-dir warning is incidental to the missing API destination; the Vercel build intentionally continues to fail until the real `ERP_BACKEND_ORIGIN` is set.
 

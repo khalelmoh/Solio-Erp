@@ -3,6 +3,11 @@ import {resolve} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {requireImplementedDatabase} from './database-provider.js';
 
+export function validateSessionCookieName(name){
+  if(!/^erp_[a-z0-9_]{1,48}$/.test(name))throw Error('Invalid application session cookie name');
+  return name;
+}
+
 export function runtimeConfig(env=process.env){
   requireImplementedDatabase(env);
   if(env.VERCEL==='1')throw new Error('Deploy the static interface with build:vercel; the SQLite backend requires persistent storage outside Vercel Functions');
