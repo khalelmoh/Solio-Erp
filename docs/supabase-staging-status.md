@@ -16,16 +16,22 @@ Measured 3 November 2026 against the newly created synthetic Supabase project in
 
 Private measurement receipts are in ignored `.cache/supabase-target-preflight.json`, `.cache/supabase-initialization-evidence.json` and `.cache/supabase-bootstrap-evidence.json`. Secret files and receipts are not release artifacts or source-control inputs.
 
+## Actual Render HTTPS verification
+
+On 3 November2026 the user supplied `https://solio-erp-staging-api.onrender.com` after reporting a successful deployment. Measured checks passed: `/healthz`200; direct API health without the proxy secret403; project access with proxy trust but no user session401; trusted API health200, build0.16.0, PostgreSQL and synthetic-only; cross-origin login403; administrator MFA login200; secure HttpOnly/SameSite=Strict session cookie; authenticated configuration/jobs access200; jobs/transports disabled; logout200. No financial transaction was submitted. Private timings and instance identity are in `.cache/render-target-evidence.json`. These are actual Render HTTPS results, separate from the preceding local HTTP checks.
+
+At the same checkpoint, the Vercel homepage and `/api/health` both returned404. End-to-end frontend routing is not verified. Set the actual Node origin in Vercel and redeploy; a successful backend does not establish frontend readiness, persistence or recovery.
+
 ## Exact next actions
 
 | Owner | Action | Evidence still required |
 | --- | --- | --- |
-| Hosting administrator | User reports all three secret files added. Correct the existing service's `ERP_SESSION_COOKIE` to `erp_solio_staging_session`, retain the CA path, and deploy the latest commit. | The supplied Render log confirms build success and the diagnosed cookie startup failure. Actual HTTPS API origin and successful `/healthz` remain pending; no privileged owner credential belongs in the API. |
-| Hosting administrator | Set the actual API origin and matching proxy secret on Vercel; redeploy. | Same-origin API health, private access, secure cookies, MFA and protected downloads. |
+| Hosting administrator | Preserve the verified Render configuration and stable secret files across releases. | Initial HTTPS health, proxy/origin rejection, MFA and disabled jobs/transports passed. Restart/redeployment persistence and full transaction/attachment flows remain pending. |
+| Vercel administrator | Set `ERP_BACKEND_ORIGIN=https://solio-erp-staging-api.onrender.com` for Production and redeploy with the matching proxy secret already configured. | Current homepage and API return404; verify same-origin API health, private access, browser sessions, MFA and protected downloads after deployment. |
 | Engineering/security | Review actual Data API exposed schemas, inherited grants and existing Storage policies/buckets. | Provider configuration receipt; current schema grants alone do not establish the full provider review. |
 | Engineering/Finance | Run target financial, concurrency, export and attachment scenarios with separate synthetic role accounts, then restart/redeploy. | Target-specific source totals and persisted IDs/attachments; local tests are historical evidence only. |
 | Hosting/recovery owner | Configure scheduled encrypted backups, independent key custody and an authorized failure-alert destination; restore into a separate isolated environment. | Delivered failure alert, restored authentication/attachments/audit/balances and measured recovery results. |
 | Business reviewers | Resume outstanding guided acceptance scenarios and record actual observations. | Human findings, separate from automated technical checks. |
 | Policy/pilot owner | Validate applicable policies and explicitly authorize any real-record pilot. | No real-record or production authorization exists from this setup. |
 
-Jobs and outbound transports remain disabled for initial staging. Render Free availability/scheduling limits remain unresolved for any always-on or real-record use. Actual Render/Vercel success, restart persistence and Supabase recovery are unverified.
+Jobs and outbound transports remain disabled for initial staging. Render Free availability/scheduling limits remain unresolved for any always-on or real-record use. Vercel routing/browser acceptance, restart persistence and Supabase recovery remain unverified.
