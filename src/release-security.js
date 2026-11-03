@@ -1,5 +1,6 @@
 import {randomBytes,scryptSync} from 'node:crypto';
 import {seal,unseal,fingerprint} from './secure.js';
+import {stagingPasswordOnlyAdministrator} from './runtime.js';
 
 export function releaseSecurityMethods({base,fail,text,hash,canonical}){
   const methods={
@@ -8,7 +9,18 @@ export function releaseSecurityMethods({base,fail,text,hash,canonical}){
     assertAccountEnabled(actor){if(this.get('SELECT enabled FROM user_access_events WHERE user_id=? ORDER BY id DESC LIMIT 1',actor)?.enabled===0)fail('Account access is disabled',403);},
     execute(actor,...args){this.assertAccountEnabled(actor);return base.execute.call(this,actor,...args);},
     journal(actor,d){this.assertAccountEnabled(actor);return base.journal.call(this,actor,d);},
-    requireStrongAuth(actor){return(this.control('privileged_mfa_required')||process.env.NODE_ENV==='production')&&!!(this.user(actor).admin||this.get('SELECT 1 FROM org_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM hr_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM el_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM acc_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM ops_roles WHERE user_id=?',actor)||this.get("SELECT 1 FROM memberships WHERE user_id=? AND role IN('manager','finance')",actor));},
+    requireStrongAuth(actor){const user=this.user(actor),productionMFA=process.env.NODE_ENV==='production'&&(!stagingPasswordOnlyAdministrator(user)||!!this.get('SELECT 1 FROM user_mfa WHERE user_id=? AND enabled=1',actor));return(this.control('privileged_mfa_required')||productionMFA)&&!!(user.admin||this.get('SELECT 1 FROM org_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM hr_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM el_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM acc_roles WHERE user_id=?',actor)||this.get('SELECT 1 FROM ops_roles WHERE user_id=?',actor)||this.get("SELECT 1 FROM memberships WHERE user_id=? AND role IN('manager','finance')",actor));},
+    disableStagingMFA(actor,d){
+      const user=this.user(actor);
+      if(!stagingPasswordOnlyAdministrator(user))fail('Only the configured synthetic staging administrator can remove this enrollment',403);
+      if(this.control('mfa_required')||this.control('privileged_mfa_required'))fail('Organization MFA policy requires enrollment',403);
+      this.verifyPassword(actor,d.current_password);text(d.reason,'Reason for synthetic staging MFA removal');
+      this.run('DELETE FROM user_mfa WHERE user_id=?',actor);
+      this.run('UPDATE mfa_recovery SET consumed=1 WHERE user_id=?',actor);
+      this.run('DELETE FROM mfa_consumptions WHERE user_id=?',actor);
+      this.run('DELETE FROM sessions WHERE user_id=?',actor);
+      return{id:actor,sign_in_required:true,mfa_enrolled:false};
+    },
     rateLimit(bucket,limit=10){const key=hash(bucket),now=Date.now();this.run('DELETE FROM auth_limits WHERE reset_at<?',now);this.run('INSERT INTO auth_limits(bucket,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(bucket) DO UPDATE SET attempts=attempts+1',key,now+900000);if(this.get('SELECT attempts FROM auth_limits WHERE bucket=?',key).attempts>limit)fail('Too many authentication attempts; try again in 15 minutes',429);},
     login(email,password,otp){const result=base.login.call(this,email,password,otp);try{this.assertAccountEnabled(result.user.id);const strong=!!this.get('SELECT 1 FROM user_mfa WHERE user_id=? AND enabled=1',result.user.id);if(this.requireStrongAuth(result.user.id)&&!strong)fail('Privileged sign-in requires authenticator enrollment or verified organization MFA',401);if(strong)this.run('UPDATE sessions SET auth_strength=2 WHERE token_hash=?',hash(result.token));this.insert('audit',{actor_id:result.user.id,action:'auth.login',entity:String(result.user.id),details:JSON.stringify({mfa:strong})});return result;}catch(e){this.logout(result.token);throw e;}},
     authenticate(token){const actor=base.authenticate.call(this,token);this.assertAccountEnabled(actor);if(this.requireStrongAuth(actor)&&this.get('SELECT auth_strength FROM sessions WHERE token_hash=?',hash(token)).auth_strength!==2)fail('Strong authentication required; sign in again',401);return actor;},

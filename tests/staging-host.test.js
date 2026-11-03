@@ -22,6 +22,12 @@ test('hosted staging rejects invalid session cookies before opening the database
   for(const cookie of ['solio_staging_session','erp_bad;cookie','erp_BAD','erp_'+ 'x'.repeat(49)])assert.throws(()=>privateStagingConfig({...synthetic,ERP_SESSION_COOKIE:cookie}),/Invalid application session cookie name/);
 });
 
+test('hosted password-only administrator configuration is limited to one synthetic account with transports disabled',()=>{
+  const setting={ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL:'staging-admin@example.test'};
+  assert.doesNotThrow(()=>privateStagingConfig({...synthetic,...setting}));
+  for(const change of [{ERP_STAGING_SYNTHETIC_ONLY:'false'},{ERP_TRANSPORTS_ENABLED:'true'},{ERP_TRANSPORTS_ENABLED:undefined},{ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL:'first@example.test,second@example.test'},{ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL:'*'}])assert.throws(()=>privateStagingConfig({...synthetic,...setting,...change}));
+});
+
 test('hosted staging Blueprint cookie starts the server and isolates secure login from other ERP sessions',async()=>{
   const blueprint=readFileSync(new URL('../render.yaml',import.meta.url),'utf8'),sessionCookie=/key: ERP_SESSION_COOKIE\r?\n\s+value: (\S+)/.exec(blueprint)?.[1];
   assert.ok(sessionCookie,'Blueprint must explicitly configure an isolated cookie');

@@ -8,6 +8,10 @@ export function validateSessionCookieName(name){
   return name;
 }
 
+export function stagingPasswordOnlyAdministrator(user,env=process.env){
+  return env.ERP_STAGING_SYNTHETIC_ONLY==='true'&&env.ERP_TRANSPORTS_ENABLED==='false'&&!!user.admin&&typeof env.ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL==='string'&&env.ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL.trim().toLowerCase()===user.email.toLowerCase();
+}
+
 export function runtimeConfig(env=process.env){
   requireImplementedDatabase(env);
   if(env.VERCEL==='1')throw new Error('Deploy the static interface with build:vercel; the SQLite backend requires persistent storage outside Vercel Functions');
@@ -17,6 +21,10 @@ export function runtimeConfig(env=process.env){
   const secureCookies=boolean('ERP_SECURE_COOKIES'),enabled=boolean('ERP_JOBS_ENABLED'),transportsEnabled=boolean('ERP_TRANSPORTS_ENABLED'),actor=env.ERP_WORKER_USER?integer('ERP_WORKER_USER',0,1,Number.MAX_SAFE_INTEGER):null;
   const syntheticStaging=boolean('ERP_STAGING_SYNTHETIC_ONLY');
   if(syntheticStaging&&transportsEnabled)throw new Error('Synthetic staging requires ERP_TRANSPORTS_ENABLED=false');
+  if(env.ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL){
+    if(!syntheticStaging||env.ERP_TRANSPORTS_ENABLED!=='false')throw new Error('Password-only staging administrator requires synthetic-only mode and explicitly disabled transports');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(env.ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL)||env.ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL.length>254)throw new Error('Configure exactly one password-only staging administrator email');
+  }
   if(enabled&&!actor)throw new Error('ERP_JOBS_ENABLED requires an authorized ERP_WORKER_USER');
   if(env.NODE_ENV==='production'){
     let origin;try{origin=new URL(env.ERP_PUBLIC_ORIGIN);}catch{throw new Error('Production requires ERP_PUBLIC_ORIGIN');}

@@ -2,6 +2,8 @@
 
 Measured 3 November 2026 against the newly created synthetic Supabase project in Ireland (`eu-west-1`). Saved SQLite, the local PostgreSQL preview and paused guided UAT were not used as migration sources or changed. No real records or external financial transactions were entered.
 
+Latest requested authentication change: the owner asked for password-only access to the one online staging administrator. Release0.16.1 is prepared and locally verified with26 selected SQLite/configuration checks and one compiled native PostgreSQL regression. Actual MFA removal remains pending Render configuration/deployment and the audited removal operation; the existing online enrollment has not been changed. The new option is rejected outside synthetic-only mode with explicitly disabled transports and does not override explicit organization MFA controls. See [procedure](render-staging.md#optional-password-only-synthetic-administrator-0161).
+
 ## Passed on the actual Supabase database
 
 - Session pooler connection on5432, with CA and hostname verification enabled. The database password was verified after the user corrected the protected local setup file.
@@ -33,7 +35,7 @@ Private receipts are `.cache/vercel-public-evidence.json` and `.cache/vercel-bro
 | Owner | Action | Evidence still required |
 | --- | --- | --- |
 | Hosting administrator | Preserve the verified Render configuration and stable secret files across releases. | Initial HTTPS health, proxy/origin rejection, MFA and disabled jobs/transports passed. Restart/redeployment persistence and full transaction/attachment flows remain pending. |
-| Vercel administrator / staging user | Preserve the working proxy configuration; import the protected staging administrator enrollment into the user's authenticator and confirm actual browser login. | Homepage/API health and automated browser MFA/session/logout passed. Human observation, protected attachment journeys and additional frontend deployment protection remain pending. |
+| Render administrator / staging user | Configure the requested account-specific password-only staging exception and deploy0.16.1; engineering then submits the existing-authentication/current-password removal operation and verifies fresh login. | Actual removal, password-only browser login and human findings pending; previous automated MFA/session/logout results remain historical evidence. Protected attachment journeys and frontend deployment-protection review also remain pending. |
 | Engineering/security | Review actual Data API exposed schemas, inherited grants and existing Storage policies/buckets. | Provider configuration receipt; current schema grants alone do not establish the full provider review. |
 | Engineering/Finance | Run target financial, concurrency, export and attachment scenarios with separate synthetic role accounts, then restart/redeploy. | Target-specific source totals and persisted IDs/attachments; local tests are historical evidence only. |
 | Hosting/recovery owner | Configure scheduled encrypted backups, independent key custody and an authorized failure-alert destination; restore into a separate isolated environment. | Delivered failure alert, restored authentication/attachments/audit/balances and measured recovery results. |

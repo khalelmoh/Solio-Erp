@@ -10,6 +10,37 @@ import {openDatabase} from '../src/db.js';
 import {dirname,join} from 'node:path';
 import {readFileSync} from 'node:fs';
 
+test('password-only synthetic administrator keeps other accounts, production and explicit MFA policies protected',()=>{
+  const keys=['NODE_ENV','ERP_STAGING_SYNTHETIC_ONLY','ERP_TRANSPORTS_ENABLED','ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL'],previous=Object.fromEntries(keys.map(k=>[k,process.env[k]])),f=fixture();
+  try{
+    f.db.erpMasterKey=Buffer.alloc(32,9);
+    const other=f.erp.createUser({name:'Other administrator',email:'other@example.test',password:'Other-administrator-password!',admin:true});
+    Object.assign(process.env,{NODE_ENV:'production',ERP_STAGING_SYNTHETIC_ONLY:'true',ERP_TRANSPORTS_ENABLED:'false',ERP_STAGING_PASSWORD_ONLY_ADMIN_EMAIL:'admin@demo.erp'});
+    assert.equal(f.erp.requireStrongAuth(f.demo.users.admin),false);
+    const session=f.erp.login('admin@demo.erp','Demo-only-2026!');assert.equal(f.erp.authenticate(session.token),f.demo.users.admin);assert.equal(f.erp.get('SELECT auth_strength FROM sessions WHERE user_id=?',f.demo.users.admin).auth_strength,1);f.erp.logout(session.token);
+    assert.equal(f.erp.requireStrongAuth(other),true);assert.throws(()=>f.erp.login('other@example.test','Other-administrator-password!'),/authenticator enrollment/);
+    assert.equal(f.erp.requireStrongAuth(f.demo.users.manager),true);
+    process.env.ERP_STAGING_SYNTHETIC_ONLY='false';assert.equal(f.erp.requireStrongAuth(f.demo.users.admin),true);
+    process.env.ERP_STAGING_SYNTHETIC_ONLY='true';process.env.ERP_TRANSPORTS_ENABLED='true';assert.equal(f.erp.requireStrongAuth(f.demo.users.admin),true);
+    process.env.ERP_TRANSPORTS_ENABLED='false';
+    f.erp.run("UPDATE controls SET value='true' WHERE name='privileged_mfa_required'");assert.equal(f.erp.requireStrongAuth(f.demo.users.admin),true);assert.throws(()=>f.erp.login('admin@demo.erp','Demo-only-2026!'),/authenticator enrollment/);
+    f.erp.run("UPDATE controls SET value='false' WHERE name='privileged_mfa_required'");
+    f.erp.run("UPDATE controls SET value='true' WHERE name='mfa_required'");assert.throws(()=>f.erp.login('admin@demo.erp','Demo-only-2026!'),/authenticator enrollment/);
+    f.erp.run("UPDATE controls SET value='false' WHERE name='mfa_required'");
+    const earlierWeak=f.erp.login('admin@demo.erp','Demo-only-2026!');
+    const setup=f.op('admin','mfa.enroll',{password:'Demo-only-2026!'}),recovery=f.op('admin','mfa.confirm',{code:totp(setup.secret,Math.floor(Date.now()/30000))}).recovery_codes;assert.throws(()=>f.erp.login('admin@demo.erp','Demo-only-2026!'),/Authenticator/);assert.equal(f.erp.requireStrongAuth(f.demo.users.admin),true);assert.throws(()=>f.erp.authenticate(earlierWeak.token),/Strong authentication/);
+    const strong=f.erp.login('admin@demo.erp','Demo-only-2026!',recovery[0]);
+    const removal={current_password:'Demo-only-2026!',reason:'User requested password-only access for isolated synthetic staging'};
+    assert.throws(()=>f.op('requester','mfa.staging.disable',removal),/configured synthetic staging administrator/);
+    assert.throws(()=>f.op('admin','mfa.staging.disable',{...removal,current_password:'wrong-password'}),/Current password/);
+    f.erp.run("UPDATE controls SET value='true' WHERE name='mfa_required'");assert.throws(()=>f.op('admin','mfa.staging.disable',removal),/Organization MFA policy/);f.erp.run("UPDATE controls SET value='false' WHERE name='mfa_required'");
+    process.env.ERP_STAGING_SYNTHETIC_ONLY='false';assert.throws(()=>f.op('admin','mfa.staging.disable',removal),/configured synthetic staging administrator/);process.env.ERP_STAGING_SYNTHETIC_ONLY='true';
+    f.op('admin','mfa.staging.disable',removal);assert.throws(()=>f.erp.authenticate(strong.token),/expired/);assert.equal(f.erp.securityState(f.demo.users.admin).mfa_enrolled,false);assert.equal(f.erp.get('SELECT COUNT(*) AS n FROM mfa_recovery WHERE user_id=? AND consumed=0',f.demo.users.admin).n,0);
+    assert.ok(!f.erp.get("SELECT details FROM audit WHERE action='mfa.staging.disable'").details.includes('Demo-only-2026!'));
+    const passwordOnly=f.erp.login('admin@demo.erp','Demo-only-2026!');assert.equal(f.erp.authenticate(passwordOnly.token),f.demo.users.admin);f.erp.logout(passwordOnly.token);
+  }finally{for(const k of keys){if(previous[k]===undefined)delete process.env[k];else process.env[k]=previous[k];}f.cleanup();}
+});
+
 test('first administrator bootstrap requires empty database and protected MFA material without default credentials',()=>{const f=fixture();let db;try{
   db=openDatabase(join(dirname(f.path),'clean-bootstrap.sqlite'));const e=new ERP(db),mfaFile=join(dirname(f.path),'private-enrollment.json');
   assert.throws(()=>bootstrapAdministrator(e,{email:'owner@example.test',password:'Valid-initial-password!',production:true}),/MFA_SEED_FILE/);

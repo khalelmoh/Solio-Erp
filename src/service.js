@@ -122,7 +122,7 @@ export class ERP {
         'correction.authorize':'authorizeCorrection','statement.create':'createStatement','statement.import':'importStatement',
         'statement.match':'matchStatement','statement.unmatch':'unmatchStatement','statement.finalize':'finalizeStatement','statement.reopen':'reopenStatement','reconciliation.offset':'offsetCash',
         'project.complete':'completeProject','project.reopen':'reopenProject','closure.authorize':'authorizeClosure',
-        'control.set':'setControl','org.role':'setOrgRole','password.change':'changePassword','sessions.revoke':'revokeSessions','mfa.enroll':'enrollMFA','mfa.confirm':'confirmMFA',
+        'control.set':'setControl','org.role':'setOrgRole','password.change':'changePassword','sessions.revoke':'revokeSessions','mfa.enroll':'enrollMFA','mfa.confirm':'confirmMFA','mfa.staging.disable':'disableStagingMFA',
         'delegation.create':'delegateApproval','delegation.revoke':'revokeDelegation','comment.add':'addComment','comment.resolve':'resolveComment',
         'expense.post':'postExpense','voucher.submit':'submitVoucher','voucher.approve':'approveVoucher','voucher.post':'postVoucher','voucher.cancel':'cancelVoucher',
         'bill.reissue':'reissueBill','adjustment.submit':'submitJournal','adjustment.approve':'approveJournal','adjustment.post':'postAdjustment','grant.submit':'submitGrant','grant.approve':'approveGrant',
