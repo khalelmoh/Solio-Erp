@@ -34,4 +34,11 @@ These are actual Supabase reads through the locally compiled application, not Re
 
 The frontend and API remain compatible during deployment. Vercel builds the new static interface from GitHub; Render must deploy the latest0.16.2 commit to activate query reuse and authorization batching. No database migration, new credential or environment variable is required. Preserve the existing key, proxy and password-only synthetic-administrator settings. Local Node development servers also need an ordinary restart to serve a newly added module; this does not require resetting a database.
 
-Live post-deployment timings remain to be measured and will be recorded separately from the published baseline. Role-separated human acceptance, real-record policies and scheduled recovery checks retain their existing pending statuses.
+The source commit3d398cc was published and Vercel reported a successful deployment. The new workspace loader returned200 on the actual public domain. A second run of the same warm-service browser workload measured the frontend change while Render still reported0.16.1:
+
+| Selection | Before | After frontend rollout | API requests before → after |
+| --- | ---: | ---: | ---: |
+| Finance | 76.4s | 15.7s | 17 → 3 |
+| HR management | 64.1s | 21.9s | 15 → 6 |
+
+Private receipt: `.cache/navigation-performance-after-frontend.json`. These are actual live browser measurements, not estimates. The backend query optimization is not yet active on Render: deployment0.16.2 and final timing/behavior verification remain pending. Hosting owner: open solio-erp-staging-api → Manual Deploy → Deploy latest commit, then report Live. No environment/key changes or migration are required. Role-separated human acceptance, real-record policies and scheduled recovery checks retain their existing pending statuses.
