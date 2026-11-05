@@ -7,7 +7,7 @@ export function accountingCoreMethods({base,fail,text,date,cents,parseMoney,deci
   const signed=v=>parseMoney(v,{signed:true}),zero=v=>parseMoney(v,{zero:true});
   const manualForbidden=new Set(Object.keys(ACCOUNT_ROLES).filter(r=>!['expenditure','payroll_expense'].includes(r)));
   return {
-    hasAccounting(actor,role){this.user(actor);return!!this.get('SELECT 1 FROM acc_roles WHERE user_id=? AND role=?',actor,role)||(role==='auditor'&&!!this.get("SELECT 1 FROM org_roles WHERE user_id=? AND role='auditor'",actor));},
+    hasAccounting(actor,role){return this.roleAssignments(actor).some(r=>r.area==='accounting'&&r.role===role||role==='auditor'&&r.area==='organization'&&r.role==='auditor');},
     accountingRequire(actor,roles=['accountant','approver','auditor']){if(!roles.some(r=>this.hasAccounting(actor,r)))fail('Organization accounting permission required',403);},
     reconciliationRole(actor){if(this.hasAccounting(actor,'accountant'))return;return base.admin.call(this,actor);},
     setAccountingRole(actor,d){this.admin(actor);this.user(d.user_id);if(!['accountant','approver','auditor'].includes(d.role)||typeof d.enabled!=='boolean')fail('Choose an accounting role and explicit enabled flag');if(d.enabled)this.run('INSERT OR IGNORE INTO acc_roles(user_id,role) VALUES(?,?)',d.user_id,d.role);else this.run('DELETE FROM acc_roles WHERE user_id=? AND role=?',d.user_id,d.role);return{id:d.user_id};},

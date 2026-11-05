@@ -54,7 +54,7 @@ try {
   await click('[data-op=pay]');await fill({'[name=amount]':'4000.00','[name=date]':'2026-04-05','[name=reference]':'BROWSER-PAY'});await submit();
   await navigate(page,'overview');
   const m=f.erp.metrics(projectId);assert.equal(m.actual,600000);assert.equal(m.commitment,400000);assert.equal(m.remaining,4000000);assert.equal(m.liability,200000);assert.equal(m.cash,3600000);
-  await navigate(page,'home');await page.locator('[data-dashboard-root]').waitFor();for(const task of ['project-receipt','project-bill','project-pay','project-settle'])assert.equal(await page.locator('[data-workspace-task='+task+']').isVisible(),true);await page.locator('[data-workspace-task=project-settle]').click();await page.getByRole('heading',{name:'Employee & supplier advances',exact:true}).waitFor();assert.deepEqual(f.erp.metrics(projectId),m);await navigate(page,'overview');
+  await navigate(page,'home');await page.locator('[data-dashboard-root]').waitFor();await page.locator('.dashboard-action-menu > summary').click();for(const task of ['project-receipt','project-bill','project-pay','project-settle'])assert.equal(await page.locator('[data-workspace-task='+task+']').isVisible(),true);await page.locator('[data-workspace-task=project-settle]').click();await page.getByRole('heading',{name:'Employee & supplier advances',exact:true}).waitFor();assert.deepEqual(f.erp.metrics(projectId),m);await navigate(page,'overview');
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'Mobile viewport overflow');
   await page.locator('#toast').waitFor({state:'hidden'});

@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 
 export function peopleCoreMethods({base,fail,text,date,cents,parseMoney,decimal,sum,today,canonical,hash}){
   return {
-    hasEL(actor,role){this.user(actor);return!!this.get('SELECT 1 FROM el_roles WHERE user_id=? AND role=?',actor,role);},
+    hasEL(actor,role){return this.roleAssignments(actor).some(r=>r.area==='lifecycle'&&r.role===role);},
     elStaff(actor){this.hrRequire(actor,['hr_staff']);},
     elHiring(actor){if(!this.hasEL(actor,'hiring_approver'))fail('Independent hiring approval capability required',403);},
     elRecruitment(actor){if(!this.hasHR(actor,'hr_staff')&&!this.hasEL(actor,'hiring_approver'))fail('Confidential recruitment permission required',403);},

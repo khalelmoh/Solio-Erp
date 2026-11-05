@@ -1,5 +1,6 @@
 import {workspaceExperience,scopeBanner} from './workspace-experience.js';
 import {workspaceNavigation} from './workspace-navigation.js';
+import {loadWorkspaceData} from './workspace-data.js';
 import {dashboardUI} from './dashboard-ui.js';
 import {applicationShell} from './application-shell.js';
 import {operationsUI} from './operations-ui.js';
@@ -19,7 +20,7 @@ const pendingKeys = new Map();
 async function api(path,options={}) {
   const response=await fetch(`/api${path}`,{credentials:'same-origin',...options});
   const data=await response.json();
-  if(!response.ok) { if(response.status===401 && path!=='/login' && path!=='/password/reset') showLogin(); const e=new Error(data.error);e.status=response.status;throw e; } return data;
+  if(!response.ok) { if(response.status===401 && path!=='/login' && path!=='/password/reset'){state.loadEpoch=(state.loadEpoch||0)+1;showLogin();} const e=new Error(data.error);e.status=response.status;throw e; } return data;
 }
 async function action(name,data) {
   const signature=JSON.stringify({action:name,data}),persist=!/^(password|mfa|user.create|integration.configure)/.test(name),digest=persist?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(signature)))).map(n=>n.toString(16).padStart(2,'0')).join(''):null,storageKey=persist?'folio-pending:'+state.config.user.id+':'+digest:null;
@@ -43,28 +44,27 @@ function updateTable(box,delta=0){const term=box.querySelector('[data-table-filt
 function current() { return state.details.get(state.project); }
 function projectChoices(){const rows=state.projectPage?.projects||[],selected=current();state.projects=selected&&!rows.some(p=>p.id===state.project)?[...rows,{...selected.project,metrics:selected.metrics}]:rows;}
 async function fetchProjectPage(){state.projectPage=await api('/projects?'+new URLSearchParams(state.projectFilters));projectChoices();}
-async function loadProject(id){
-  const [detail,work,inventory,salary]=await Promise.all([api(`/projects/${id}`),api(`/projects/${id}/work`),api(`/projects/${id}/inventory`),api(`/projects/${id}/salary-costs`)]);
-  if(!state.config)return;
-  state.details=new Map([[id,detail]]);state.work=new Map([[id,work]]);state.inventory=new Map([[id,inventory]]);state.salaryCosts=new Map([[id,salary]]);projectChoices();state.report=null;
+async function loadProject(id,{view=state.view}={}){
+  const actor=state.config?.user.id,epoch=state.loadEpoch;
+  const extra=view==='work'?'work':view==='inventory'?'inventory':view==='salaryCosts'?'salary-costs':null;
+  const [detail,data]=await Promise.all([api(`/projects/${id}`),extra?api(`/projects/${id}/${extra}`):null]);
+  if(!state.config||state.config.user.id!==actor||state.loadEpoch!==epoch||state.project!==id)return;
+  state.details=new Map([[id,detail]]);if(extra==='work')state.work=new Map([[id,data]]);if(extra==='inventory')state.inventory=new Map([[id,data]]);if(extra==='salary-costs')state.salaryCosts=new Map([[id,data]]);projectChoices();state.report=null;
 }
 async function allocationProject(id){if(!state.details.has(id)){const d=await api(`/projects/${id}`);if(!state.config)return null;state.details.set(id,d);}const keep=new Set([state.project,id,...[...document.querySelectorAll('#modal .line-editor [name=project_id]')].map(el=>Number(el.value))]);for(const key of state.details.keys())if(!keep.has(key))state.details.delete(key);return state.details.get(id);}
 async function load() {
-  if(state.view==='recordDetail'&&state.config){await experience.loadRecord();render();return;}
+  const epoch=state.loadEpoch=(state.loadEpoch||0)+1,isCurrent=()=>state.loadEpoch===epoch;
+  if(state.view==='recordDetail'&&state.config){await experience.loadRecord();if(isCurrent()&&state.config)render();return;}
+  if(location.hash==='#register-employee')state.view='hrManagement';
   if(state.view==='home'&&location.hash!=='#register-employee'){
-    state.config=await api('/dashboard/bootstrap');state.details.clear();state.projects=[];state.selfHR=null;state.stageHR=null;state.dashboardFilters??={};
+    const config=await api('/dashboard/bootstrap');if(!isCurrent())return;state.config=config;state.details.clear();state.projects=[];state.selfHR=null;state.stageHR=null;state.dashboardFilters??={};
     $('#login-view').classList.add('hidden');$('#workspace').classList.remove('hidden');workspaceChrome();syncNavigation(state.view,state);shell.update();
-await dashboard.load();await experience.loadSetup();if(state.config)render();return;
+await Promise.all([dashboard.load(),experience.loadSetup()]);if(state.config&&isCurrent())render();return;
   }
   if(!$('#workspace').classList.contains('hidden'))$('#content').innerHTML='<div class="loading" role="status">Loading project workspace…</div>';
-  state.config=await api('/config');
-  await fetchProjectPage();
-  state.project=state.project||state.projects[0]?.id||null;
-  state.details.clear();state.work=new Map();state.inventory=new Map();state.salaryCosts=new Map();
-  if(state.project){try{await loadProject(state.project);}catch(e){if(e.status!==403)throw e;state.project=state.projectPage.projects[0]?.id||null;if(state.project)await loadProject(state.project);}}
-  state.selfHR=await api('/my-work');state.catalog=await api('/catalog');state.inbox=(await api('/inbox')).notifications;state.hr=state.config.security.roles.some(r=>['hr','payroll'].includes(r))?await api('/hr'):null;state.integrations=state.config.user.admin?await api('/integrations'):null;state.jobs=state.config.user.admin?await api('/jobs'):null;
-  state.stageHR=await api('/hr/stage3');state.hrReports=state.stageHR.capabilities.length||state.selfHR.employee?await api('/hr/reports?'+new URLSearchParams(state.hrFilters||{from:now().slice(0,7)+'-01',to:now()})):null;
-  await peopleLifecycle.load();await accounting.load();if(!state.project&&state.config.accounting_roles.length&&state.view==='overview')state.view='organizationFinance';if(state.view==='organizationFinance')await organization.load();state.reconciliation=state.config.user.admin||state.config.accounting_roles.includes('accountant')?await api('/reconciliation'):null;state.report=null;
+  const config=await api('/config');if(!isCurrent())return;state.config=config;
+  if(!await loadWorkspaceData({state,api,now,loadProject,organization,accounting,lifecycle:peopleLifecycle,isCurrent}))return;
+  if(!state.project&&state.config.accounting_roles.length&&state.view==='overview'){state.view='organizationFinance';await organization.load();if(!isCurrent())return;}state.report=null;
   $('#login-view').classList.add('hidden');$('#workspace').classList.remove('hidden');
   const u=state.config.user;$('#avatar').textContent=u.name.split(' ').slice(0,2).map(p=>p[0]).join('');
   $('#user-name').innerHTML=`${esc(u.name)}<small>${u.admin?'Administrator':'Project workspace'}</small>`;
@@ -280,9 +280,9 @@ $('#login-form').addEventListener('submit',async event=>{
   event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;$('#login-error').textContent='';
   try { if(new URLSearchParams(location.search).has('oidc_mfa')){await api('/oidc/finish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({otp:dataOf(event.target).otp})});history.replaceState(null,'','/');await load();return;}await api('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dataOf(event.target))});await load(); } catch(e) { $('#login-error').textContent=e.message; } finally { button.disabled=false; }
 });
-async function logout() { await api('/logout',{method:'POST'});pendingKeys.clear();state.details.clear();state.projects=[];state.mfaSetup=null;state.recovery=null;state.payslip=null;state.hr=null;showLogin(); }
+async function logout() { state.loadEpoch=(state.loadEpoch||0)+1;await api('/logout',{method:'POST'});pendingKeys.clear();state.details.clear();state.projects=[];state.mfaSetup=null;state.recovery=null;state.payslip=null;state.hr=null;showLogin(); }
 function workspaceChrome(){const u=state.config.user;$('#avatar').textContent=u.name.split(' ').slice(0,2).map(p=>p[0]).join('');$('#user-name').innerHTML=`${esc(u.name)}<small>${u.admin?'Administrator':'Organization workspace'}</small>`;$('#workspace .local-tag').textContent=state.config.application_version?`v${state.config.application_version}`:'LOCAL';}
-async function navigateTo(view){shell.close();state.view=view;if(view==='recordDetail'){await experience.loadRecord();render();return;}if(view==='home'||state.config?.compact){await load();return;}if(view==='organizationFinance')await organization.load();render();}
+async function navigateTo(view){shell.close();state.view=view;await load();}
 document.addEventListener('click',async event=>{
   const el=event.target.closest('button');if(!el)return;
   if(el.dataset.workspaceTask){try{const task=el.dataset.workspaceTask;if(task==='employee'){state.hrTab='employees';await navigateTo('hrManagement');await extensions.perform('comp-employee','');}else if(task==='projects'){await navigateTo('projects');}else if(task==='new-project'){await navigateTo('projects');await perform('project','');}else if(task==='leave'){await navigateTo('people');experience.leave();}else if(task==='pay'||task==='settle'){await experience.chooser(task);}else if(['project-receipt','project-bill','project-pay','project-settle'].includes(task)){if(state.dashboardFilters?.project_id)state.project=Number(state.dashboardFilters.project_id);await navigateTo(task==='project-receipt'?'funding':task==='project-settle'?'advances':'spending');if(task==='project-receipt'&&current()?.sources.length)await perform('receipt','');else toast(task==='project-bill'?'Choose Record bill beside an approved purchase order.':task==='project-pay'?'Choose Pay bill beside a posted unpaid bill.':task==='project-settle'?'Choose Settle / return beside an outstanding advance.':'Add an approved project funding source before recording a receipt.');}else if(task==='project-advance'){if(state.dashboardFilters?.project_id)state.project=Number(state.dashboardFilters.project_id);await navigateTo('advances');await perform('advance-request','');}else{state.organizationTab=task==='approvals'?'journals':'dashboard';await navigateTo('organizationFinance');if(['bill','receipt','advance'].includes(task))await organization.perform('org-create',task);}}catch(e){toast(e.message);}return;}

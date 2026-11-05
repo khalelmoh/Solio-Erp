@@ -3,6 +3,18 @@ import pg from 'pg';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {readFileSync,readdirSync} from 'node:fs';
 const {Pool,types}=pg;
+// Reuse only bounded metadata inside one PostgreSQL read-only snapshot. Writers
+// always query the database; commit/rollback and each request discard the cache.
+const metadataTables='users|user_access_events|user_mfa|org_roles|hr_roles|el_roles|acc_roles|ops_roles|controls|accounts|acc_account_profiles|acc_mappings|hr_profiles';
+const metadataRead=new RegExp('^\\s*SELECT\\b(?:(?!\\b(?:SELECT|FROM)\\b)[\\s\\S])*?\\bFROM\\s+"?(?:'+metadataTables+')"?\\b','i');
+const stableFunctions=new Set(['in','exists','coalesce','nullif','count','sum','min','max','avg','round','abs','cast','instr','lower','upper','length']);
+function reusableMetadata(sql){
+  if(!/^\s*SELECT\b/i.test(sql)||!metadataRead.test(sql)||sql.includes(';')||/\b(?:FOR\s+(?:UPDATE|SHARE)|CURRENT_TIMESTAMP|LOCALTIME|LOCALTIMESTAMP|CURRENT_TIME)\b/i.test(sql))return false;
+  return [...sql.matchAll(/\b([a-z_][a-z0-9_]*)\s*\(/gi)].every(m=>stableFunctions.has(m[1].toLowerCase()));
+}
+function copyValue(value){if(Buffer.isBuffer(value))return Buffer.from(value);if(value instanceof Date)return new Date(value);if(Array.isArray(value))return value.map(copyValue);if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,copyValue(v)]));return value;}
+function resultCopy(result){return{...result,rows:result.rows.map(copyValue)};}
+function valueBytes(value,depth=0){if(depth>8)return 65537;if(value==null)return 4;if(Buffer.isBuffer(value))return value.length;if(typeof value==='string')return Buffer.byteLength(value);if(value instanceof Date)return 24;if(typeof value!=='object')return 16;let n=0;for(const [key,entry]of Object.entries(value)){n+=key.length+valueBytes(entry,depth+1);if(n>65536)break;}return n;}
 for(const oid of [20,1700])types.setTypeParser(oid,s=>{const n=Number(s);if(!Number.isSafeInteger(n))throw Error('Database integer exceeds safe USD precision');return n;});
 export function postgresOptions(env=process.env){
   const connectionString=env.ERP_POSTGRES_URL_FILE?readFileSync(env.ERP_POSTGRES_URL_FILE,'utf8').trim():env.ERP_POSTGRES_URL;
@@ -31,9 +43,16 @@ export class PostgresDatabase {
   constructor(pool,{schema,key,owner=false}){this.pool=pool;this.schema=schema;this.erpMasterKey=key;this.erpPath=null;this.storage=new AsyncLocalStorage();this.owner=owner;this.provider='postgres';this.identities=new Set();pool.on('error',()=>{this.lastConnectionFailure=Date.now();});}
   get isTransaction(){return!!this.storage.getStore()?.transaction;}
   async withSession(fn){if(this.storage.getStore())return fn();const client=await this.pool.connect();const state={client,transaction:false};let connectionError;const failed=e=>{connectionError=e;};client.on('error',failed);try{await client.query('SET search_path TO "'+this.schema+'", pg_catalog');await client.query("SET timezone TO 'UTC'");return await this.storage.run(state,fn);}finally{if(state.transaction)await client.query('ROLLBACK').catch(e=>{connectionError=e;});client.removeListener('error',failed);client.release(connectionError);}}
-  async query(sql,args=[]){return this.withSession(async()=>{try{return await this.storage.getStore().client.query(sql,args);}catch(e){const messages={'23505':'UNIQUE constraint: duplicate reference or document','23503':'FOREIGN KEY constraint: invalid linked record','23514':'CHECK constraint: invalid record'};if(messages[e.code]){e.message=e.code==='23514'&&!e.constraint?'CHECK constraint: '+e.message:messages[e.code];}throw e;}});}
+  async query(sql,args=[]){return this.withSession(async()=>{
+    const state=this.storage.getStore();let key;
+    if(state.readCache&&reusableMetadata(sql)){const params=JSON.stringify(args,(_k,v)=>typeof v==='bigint'?v.toString():v);if(sql.length+params.length<=4096)key=sql+'\0'+params;}
+    if(state.readCache&&/^(?:\s*)(?:SET|RESET|DISCARD|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b|\bset_config\s*\(/i.test(sql)){state.readCache.clear();state.cacheBytes=0;}
+    if(key&&state.readCache.has(key))return resultCopy(state.readCache.get(key));
+    try{const result=await state.client.query(sql,args);if(key&&result.rows.length<=64&&state.readCache.size<128){const bytes=valueBytes(result.rows);if(bytes<=65536&&state.cacheBytes+bytes<=262144){state.readCache.set(key,resultCopy(result));state.cacheBytes+=bytes;}}return result;}
+    catch(e){const messages={'23505':'UNIQUE constraint: duplicate reference or document','23503':'FOREIGN KEY constraint: invalid linked record','23514':'CHECK constraint: invalid record'};if(messages[e.code]){e.message=e.code==='23514'&&!e.constraint?'CHECK constraint: '+e.message:messages[e.code];}throw e;}
+  });}
   prepare(sql){return{get:async(...args)=>(await this.query(sqlForPostgres(sql,args),args)).rows[0],all:async(...args)=>(await this.query(sqlForPostgres(sql,args),args)).rows,run:async(...args)=>{let q=sqlForPostgres(sql,args);const table=/^\s*INSERT\s+INTO\s+"?([a-z_]+)/i.exec(q)?.[1];if(table&&this.identities.has(table)&&!bReturning(q))q+=' RETURNING id';const result=await this.query(q,args);return{changes:result.rowCount,lastInsertRowid:result.rows[0]?.id||0};}};}
-  async exec(sql){return this.withSession(async()=>{const state=this.storage.getStore();if(/^BEGIN(?: IMMEDIATE)?$/i.test(sql.trim())){if(state.transaction)throw Error('Nested PostgreSQL transaction');await state.client.query(/^BEGIN IMMEDIATE$/i.test(sql.trim())?'BEGIN ISOLATION LEVEL READ COMMITTED':'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');state.transaction=true;if(/IMMEDIATE/i.test(sql))await state.client.query('SELECT pg_advisory_xact_lock(183660734, 1)');return;}if(/^(COMMIT|ROLLBACK)$/i.test(sql.trim())){try{return await state.client.query(sql);}finally{state.transaction=false;}}return this.query(sql);});}
+  async exec(sql){return this.withSession(async()=>{const state=this.storage.getStore();if(/^BEGIN(?: IMMEDIATE)?$/i.test(sql.trim())){if(state.transaction)throw Error('Nested PostgreSQL transaction');const writable=/^BEGIN IMMEDIATE$/i.test(sql.trim());await state.client.query(writable?'BEGIN ISOLATION LEVEL READ COMMITTED':'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');state.transaction=true;state.readCache=writable?null:new Map();state.cacheBytes=0;if(writable)await state.client.query('SELECT pg_advisory_xact_lock(183660734, 1)');return;}if(/^(COMMIT|ROLLBACK)$/i.test(sql.trim())){try{return await state.client.query(sql);}finally{state.transaction=false;state.readCache=null;state.cacheBytes=0;}}return this.query(sql);});}
   async close(){await this.pool.end();}
 }
 function bReturning(q){return/\bRETURNING\b/i.test(q);}

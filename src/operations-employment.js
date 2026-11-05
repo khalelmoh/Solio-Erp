@@ -2,7 +2,7 @@ import {seal,unseal} from './secure.js';
 
 export function operationsEmploymentMethods({base,fail,text,date,today,decimal,cents,parseMoney,sum}){
   return {
-    opsPrivacy(actor){return!!this.get("SELECT 1 FROM ops_roles WHERE user_id=? AND role='privacy_officer'",actor);},
+    opsPrivacy(actor){return this.roleAssignments(actor).some(r=>r.area==='operations'&&r.role==='privacy_officer');},
     setOperationsRole(actor,d){this.admin(actor);this.user(d.user_id);if(d.role!=='privacy_officer'||typeof d.enabled!=='boolean')fail('Choose privacy officer and explicit enabled state');if(d.enabled)this.run('INSERT OR IGNORE INTO ops_roles(user_id,role) VALUES(?,?)',d.user_id,d.role);else this.run('DELETE FROM ops_roles WHERE user_id=? AND role=?',d.user_id,d.role);return{id:d.user_id};},
     configureOperations(actor,d){
       this.admin(actor);for(const key of ['hr_user','hiring_user','payroll_preparer','payroll_approver','finance_user','moderator_user','access_user'])this.user(d[key]);

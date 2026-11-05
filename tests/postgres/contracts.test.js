@@ -8,6 +8,25 @@ import {ERP} from '../../.cache/postgres-runtime/src/service.js';
 import {migratePostgres} from '../../src/postgres-migrations.js';
 import {postgresOptions} from '../../src/postgres-db.js';
 
+test('PostgreSQL read snapshots reuse metadata without stale permissions, mutable row sharing or financial changes',async()=>{
+  const f=await postgresFixture(),config=JSON.parse(readFileSync('.cache/postgres/test.env.json','utf8')),other=await openPostgres(null,{env:f.environment(config.application)});
+  const sql='SELECT name FROM users WHERE id=$1',roles='SELECT role FROM hr_roles WHERE user_id=$1 AND role=$2',id=f.demo.users.outsider;
+  let queries=0;const connect=f.db.pool.connect.bind(f.db.pool),wrapped=new WeakSet();f.db.pool.connect=async()=>{const c=await connect();if(!wrapped.has(c)){wrapped.add(c);const query=c.query.bind(c);c.query=(q,...args)=>{if(q===sql)queries++;return query(q,...args);};}return c;};
+  try{
+    const before=await f.erp.metrics(f.demo.project),old=(await f.db.query(sql,[id])).rows[0].name;
+    queries=0;await f.db.withSession(async()=>{await f.db.exec('BEGIN');try{
+      const first=await f.db.query(sql,[id]);first.rows[0].name='Caller mutation';assert.equal((await f.db.query(sql,[id])).rows[0].name,old);assert.equal(queries,1);
+      assert.equal((await f.db.query(roles,[id,'supervisor'])).rows.length,0);
+      await other.query('UPDATE users SET name=$1 WHERE id=$2',['New request identity',id]);await other.query("INSERT INTO hr_roles(user_id,role) VALUES($1,'supervisor') ON CONFLICT DO NOTHING",[id]);
+      assert.equal((await f.db.query(sql,[id])).rows[0].name,old);assert.equal((await f.db.query(roles,[id,'supervisor'])).rows.length,0);
+      await f.db.exec('COMMIT');
+    }catch(e){await f.db.exec('ROLLBACK');throw e;}});
+    assert.equal((await f.db.query(sql,[id])).rows[0].name,'New request identity');assert.equal((await f.db.query(roles,[id,'supervisor'])).rows.length,1);
+    await other.query("DELETE FROM hr_roles WHERE user_id=$1 AND role='supervisor'",[id]);assert.equal((await f.db.query(roles,[id,'supervisor'])).rows.length,0);
+    assert.deepEqual(await f.erp.metrics(f.demo.project),before);assert.equal(before.actual,600000);assert.equal(before.commitment,400000);assert.equal(before.cash,3600000);
+  }finally{await other.close();await f.cleanup();}
+});
+
 test('PostgreSQL separate connections serialize budgets, partial payments and idempotent receipt retries',async()=>{
   const f=await postgresFixture(),other=await openPostgres(null,{env:f.environment(JSON.parse(readFileSync('.cache/postgres/test.env.json','utf8')).application)}),e=new ERP(other);
   try{

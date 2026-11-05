@@ -17,8 +17,9 @@ export function accountingUI(c){
   const objectTable=(name,list)=>list?.length?card(name,'Source identifiers link these supporting balances to the ledger',table(keys(list[0]),list.map(r=>'<tr>'+keys(list[0]).map(k=>`<td>${esc(typeof r[k]==='object'?JSON.stringify(r[k]):r[k])}</td>`).join('')+'</tr>'))):'';
   const renderKinds=[['trial_balance','Trial balance'],['general_ledger','General ledger'],['position','Statement of financial position'],['income_expenditure','Income and expenditure'],['cash_flow','Cash flow'],['payables','Supplier payable aging'],['payroll','Payroll liabilities'],['advances','Advance balances'],['funds','Funding sources'],['project_statement','Project financial statement'],['budget','Organization budget versus actual']];
   async function load(){
-    state.accounting=await api('/accounting');
-    if(a().roles.length){state.accountingFilters||={from:now().slice(0,4)+'-01-01',to:now()};state.accountingKind||='position';await loadReport();state.accountingAssets=await api('/accounting/assets');if(state.accountingPeriod)state.accountingChecklist=await api('/accounting/periods/'+state.accountingPeriod);}
+    const actor=state.config.user.id,epoch=state.loadEpoch,current=()=>state.config?.user.id===actor&&state.loadEpoch===epoch;
+    const overview=await api('/accounting');if(!current())return;state.accounting=overview;
+    if(a().roles.length){state.accountingFilters||={from:now().slice(0,4)+'-01-01',to:now()};state.accountingKind||='position';const [report,assets,checklist]=await Promise.all([api('/accounting/reports/'+state.accountingKind+'?'+new URLSearchParams(state.accountingFilters)),api('/accounting/assets'),state.accountingPeriod?api('/accounting/periods/'+state.accountingPeriod):null]);if(!current())return;state.accountingReport=report;state.accountingAssets=assets;state.accountingChecklist=checklist;}
     else{state.accountingReport=null;state.accountingAssets=null;state.accountingChecklist=null;}
   }
   async function loadReport(){state.accountingReport=await api('/accounting/reports/'+state.accountingKind+'?'+new URLSearchParams(state.accountingFilters));}

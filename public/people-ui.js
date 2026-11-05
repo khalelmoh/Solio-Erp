@@ -5,7 +5,7 @@ export function peopleUI(c){
   const b=(label,op,id='')=>button(label,'el-'+op,id),detail=o=>`<details><summary>Source details</summary><pre>${esc(JSON.stringify(o,null,2))}</pre></details>`,files=list=>(list||[]).map(f=>`<a href="/api/people/files/${f.id}">${esc(f.filename)}</a>`).join(' · ');
   const rows=(headers,list,render)=>list.length?table(headers,list.map(render)):empty('No records in your permitted scope.');
   const tabs=[['recruitment','Recruitment'],['onboarding','Onboarding & probation'],['performance','Performance'],['training','Training & skills'],['changes','Employment & self service'],['departure','Departure & final pay'],['reports','Lifecycle reports'],['policies','Policies & access']];
-  async function load(){state.lifecycle=await api('/people?'+new URLSearchParams(state.lifecycleFilters||{}));}
+  async function load(){const actor=state.config.user.id,epoch=state.loadEpoch,result=await api('/people?'+new URLSearchParams(state.lifecycleFilters||{}));if(state.config?.user.id===actor&&state.loadEpoch===epoch)state.lifecycle=result;}
   function render(){
     if(state.view!=='employeeLifecycle')return null;const r=v();if(!r)return empty('Loading employee lifecycle…');const tab=state.lifecycleTab||'recruitment';
     let html=header('Employee lifecycle','Recruitment through final payroll, with independent approvals and preserved history',`${cap('admin')?b('Assign lifecycle capability','role'):''}<a class="download-button" href="/api/people/report.csv?${esc(new URLSearchParams(state.lifecycleFilters||{}))}">Export scoped CSV</a>${b('Print statement','print')}`)+`<div class="toolbar">${tabs.map(([id,label])=>b(label,'tab',id)).join('')}</div><p class="section-note">${esc(r.budget_policy)}</p>`;

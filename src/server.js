@@ -14,6 +14,7 @@ import {backgroundJobs} from './jobs.js';
 const applicationVersion=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version;
 
 const assets = new Map([
+  ['/workspace-data.js', {file:'workspace-data.js',type:'text/javascript; charset=utf-8'}],
   ['/workspace-experience.js', {file:'workspace-experience.js',type:'text/javascript; charset=utf-8'}],
   ['/favicon.svg', {file:'favicon.svg',type:'image/svg+xml'}],
   ['/dashboard-ui.js', {file:'dashboard-ui.js',type:'text/javascript; charset=utf-8'}],
